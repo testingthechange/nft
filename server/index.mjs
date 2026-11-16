@@ -1,6 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { previewRegistration } from './registrationPreview.mjs';
-import { BETA_SIGNAL_PATH, betaSignalCors, validateBetaSignal, betaSignalReply } from './betaRegistrationSignal.mjs';
+import { BETA_SIGNAL_PATH, betaSignalCors, validateBetaSignal, completeBetaRegistrationPreview } from './betaRegistrationSignal.mjs';
 import { createServer } from 'node:http';
 
 // Dedicated private-token API service. The public Vite website remains a Render Static Site.
@@ -77,7 +77,10 @@ createServer(async (req, res) => {
       try { body = await readJson(req); }
       catch (error) { json(res, error.http || 400, {error:error.message}); return; }
       if (!validateBetaSignal(body)) { json(res, 422, {error:'beta_signal_invalid'}); return; }
-      json(res, 200, betaSignalReply());
+      // Execute the existing six-field validation in-process with synthetic BETA data only.
+      // No outbound HTTP, customer data, private-token exposure, or database writes.
+      const result = completeBetaRegistrationPreview(body, previewRegistration);
+      json(res, result.ok ? 200 : 422, result);
       return;
     }
     if (path === '/api/integrations/registration/preview') {
