@@ -1,14 +1,19 @@
-import { JsonRpcProvider } from 'ethers';
-
-// Read-only Polygon Amoy connectivity. Do not add wallets, private keys or signers here.
+// Read-only Polygon Amoy RPC connectivity. ethers.js remains installed for
+// future contract reads, but status probes use cancellable native fetch so an
+// unresponsive RPC cannot leave the HTTP request hanging indefinitely.
 export const POLYGON_AMOY_CHAIN_ID = 80002;
 export const POLYGON_AMOY_RPC_DEFAULT = 'https://polygon-amoy.api.onfinality.io/public';
+export const POLYGON_RPC_TIMEOUT_MS = 7000;
+
+function validHex(value) {
+  return typeof value === 'string' && /^0x[0-9a-f]+$/i.test(value);
+}
 
 export async function readPolygonAmoyStatus({
   rpcUrl = process.env.POLYGON_AMOY_RPC_URL || POLYGON_AMOY_RPC_DEFAULT,
-  makeProvider = (url) => new JsonRpcProvider(url),
+  fetchImpl = fetch,
+  timeoutMs = POLYGON_RPC_TIMEOUT_MS,
 } = {}) {
-  // Only HTTP(S) RPC; do not accidentally accept file:, local, or insecure URLs.
   let url;
   try {
     url = new URL(rpcUrl);
@@ -19,19 +24,44 @@ export async function readPolygonAmoyStatus({
     return { connected: false, reason: 'invalid_rpc_configuration' };
   }
 
-  let provider;
+  // Apply a single deadline to BOTH RPC operations. No secrets, full URLs,
+  // provider error bodies or response payloads are exposed.
+  const controller = new AbortController();
+  let stage = 'chain_id';
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  async function rpc(method, id) {
+    const response = await fetchImpl(url.href, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id, method, params: [] }),
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      const error = Error('rpc_http_error');
+      error.category = 'http_error';
+      error.httpStatus = response.status;
+      throw error;
+    }
+    const data = await response.json();
+    if (data?.jsonrpc !== '2.0' || data.id !== id || data.error) {
+      const error = Error('invalid_rpc_response');
+      error.category = 'invalid_response';
+      throw error;
+    }
+    return data.result;
+  }
+
   try {
-    provider = makeProvider(url.href);
-    const chainHex = await provider.send('eth_chainId', []);
-    if (typeof chainHex !== 'string' || !/^0x[0-9a-f]+$/i.test(chainHex)) {
+    const chainHex = await rpc('eth_chainId', 1);
+    if (!validHex(chainHex)) {
       return { connected: false, reason: 'invalid_chain_id' };
     }
-    const chainId = Number.parseInt(chainHex, 16);
-    if (chainId !== POLYGON_AMOY_CHAIN_ID) {
+    if (Number.parseInt(chainHex, 16) !== POLYGON_AMOY_CHAIN_ID) {
       return { connected: false, reason: 'unexpected_chain', expected_chain_id: POLYGON_AMOY_CHAIN_ID };
     }
-    const blockHex = await provider.send('eth_blockNumber', []);
-    if (typeof blockHex !== 'string' || !/^0x[0-9a-f]+$/i.test(blockHex)) {
+    stage = 'block_number';
+    const blockHex = await rpc('eth_blockNumber', 2);
+    if (!validHex(blockHex)) {
       return { connected: false, reason: 'invalid_block_number' };
     }
     const blockNumber = Number.parseInt(blockHex, 16);
@@ -47,10 +77,19 @@ export async function readPolygonAmoyStatus({
       mint_enabled: false,
       wallet_configured: false,
     };
-  } catch {
-    return { connected: false, reason: 'rpc_unavailable' };
+  } catch (error) {
+    if (controller.signal.aborted) {
+      return { connected: false, reason: 'rpc_timeout', stage };
+    }
+    if (error?.category === 'http_error') {
+      return { connected: false, reason: 'rpc_http_error', stage,
+        upstream_status: error.httpStatus };
+    }
+    if (error?.category === 'invalid_response') {
+      return { connected: false, reason: 'invalid_rpc_response', stage };
+    }
+    return { connected: false, reason: 'rpc_unavailable', stage };
   } finally {
-    // Ethers v6 provider can maintain internal resources; close per-request usage.
-    if (provider?.destroy) provider.destroy();
+    clearTimeout(timeout);
   }
 }
