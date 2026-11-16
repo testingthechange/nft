@@ -1,44 +1,48 @@
-# Ajine NFT Website
+# AJINE NFT Website and API
 
-React + Vite website shell for Ajine NFT. The production Node server serves the built frontend and exposes a same-origin, **read-only connectivity check** for Directus.
+This repo contains **two separate Render services**:
+
+1. **Existing Static Site** `ajinenft-web`: React/Vite public website at `ajinenft.online`. Keep its existing build/publish settings and custom domain unchanged.
+2. **New Web Service** `ajinenft-api`: small Node API, separate Render service, using server-only Directus credentials. The API does **not** serve the website or take over its custom domain.
+
+## Existing Static Site — unchanged
+
+- Repo: `testingthechange/nft`, branch `main`
+- Build: `npm install && npm run build`
+- Publish directory: `dist`
+- Domain: `ajinenft.online`
+
+Do not convert this Static Site into a Web Service. No `VITE_` variable may contain a Directus token or any other secret.
+
+## New Render Web Service — API only
+
+Create **New > Web Service** in Render and choose the same GitHub repo `testingthechange/nft`.
+
+- Name: `ajinenft-api`
+- Runtime: Node
+- Branch: `main` (after merging this PR)
+- Build command: `npm install`
+- Start command: `npm run start:api`
+- Health check path: `/healthz`
+- Environment variable: `AJINE_DIRECTUS_TOKEN`, **Secret**, supplied through the Render dashboard, not committed or pasted into chat
+- Use the new service's `*.onrender.com` URL; **do not** attach `ajinenft.online` to this API service
+
+Use a **dedicated least-privilege Directus service token**. Status checks only use `GET /users/me?fields=id`. Do not reuse a full administrator token in the eventual customer-facing product.
+
+## Connection checks
+
+- `GET https://<api-service-host>.onrender.com/healthz` -> HTTP 200, `{"status":"ok"}` proves the Node API is running, **not** that Directus is connected
+- `GET https://<api-service-host>.onrender.com/api/directus/status` -> HTTP 200, `{"connected":true}` proves that the API can authenticate to the existing Directus service
+- Missing or rejected token / unavailable Directus returns HTTP 503 with `{"connected":false,"reason":"not_configured"|"unavailable"}`
+
+No endpoint returns credentials, Directus user details, private records, or owner information.
 
 ## Local development
 
 ```bash
 npm install
-npm run dev
+npm run dev          # static frontend Vite dev server
+npm run start:api    # independent API server on port 3000
 ```
 
-The Vite development server is frontend-only. To test the production server:
-
-```bash
-npm run build
-AJINE_DIRECTUS_TOKEN=<set-locally-without-committing> npm start
-```
-
-Open `http://localhost:3000/api/directus/status`.
-
-- A configured, working server token returns HTTP 200 with `{"connected":true}`.
-- Missing or rejected credentials / connectivity return HTTP 503 and `{"connected":false,"reason":"not_configured"|"unavailable"}`.
-- This endpoint never returns the token, a Directus user record, or customer data.
-
-## Render deployment — important
-
-**Current hosting mode must be checked first.** This feature needs a Render **Web Service** running Node, not a Static Site. Do not simply merge and expect an existing Static Site to run the server. Keep the existing site running until the Web Service configuration is in place.
-
-Suggested Web Service settings:
-
-- Repository: `testingthechange/nft`
-- Build command: `npm install && npm run build`
-- Start command: `npm start`
-- Environment: `AJINE_DIRECTUS_TOKEN` set as a private **server-side** secret; do not prefix with `VITE_`
-- Web service listens on the `PORT` supplied by Render
-- Custom domain, once verified: `ajinenft.online`
-
-Use a dedicated **least-privilege** Directus service token. The first status check only needs `/users/me?fields=id`; broader item access should not be granted until endpoints and permissions are designed. Do not put Directus tokens or signing keys into Vite variables or commit them to GitHub.
-
-## Connection scope
-
-This PR adds only `GET /api/directus/status` on the same origin as the website. It validates that the **server** can authenticate to the existing Directus instance at `https://directus-on-nft.onrender.com`. It does not connect wallet identity, expose private collections, add registration or provenance APIs, mint or burn NFTs, modify Directus schemas, or enable commerce.
-
-Directus, Polygon, wallet verification, authentication, and purchasing flows are not yet connected to website business logic.
+This is a **foundation connection only**. The static website does not yet call this API. We must design authenticated user access and approved provenance lookups before wiring browser requests. No minting, burning, payment, data writes, owner queries, or public Directus access are enabled.
