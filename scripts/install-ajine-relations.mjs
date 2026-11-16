@@ -24,6 +24,7 @@ async function main(){
  await api('/users/me?fields=id');
  const collections=new Set((await api('/collections')).map(c=>c.collection));
  const relations=await api('/relations');
+ if (!Array.isArray(relations)) throw Error('Expected /relations data to be an array');
  const fields={};
  const tasks=[];
  console.log('AJINE ONLY:',BASE,'|',APPLY?'APPLY':'DRY RUN');
@@ -35,8 +36,12 @@ async function main(){
   if(!pk||pk.type!=='integer')throw Error('Target '+target+'.id must be integer; found '+pk?.type);
   const current=fields[source].find(f=>f.field===field);
   if(current&&current.type!=='integer')throw Error('Existing '+source+'.'+field+' has incompatible type '+current.type);
-  const existing=relations.find(r=>r.many_collection===source&&r.many_field===field);
-  if(existing&&existing.one_collection!==target)throw Error('Relationship conflict on '+source+'.'+field);
+  const matches=relations.filter(r=>(r.collection??r.meta?.many_collection??r.many_collection)===source &&
+   (r.field??r.meta?.many_field??r.many_field)===field);
+  if(matches.length>1)throw Error('Multiple relationship definitions on '+source+'.'+field);
+  const existing=matches[0];
+  const related=existing&&(existing.related_collection??existing.meta?.one_collection??existing.one_collection);
+  if(existing&&related!==target)throw Error('Relationship conflict on '+source+'.'+field+': '+related);
   const action=existing?'CONNECTED':current?'RELATE':'ADD + RELATE';
   console.log(action,source+'.'+field+' -> '+target+'.id');
   if(!existing)tasks.push({source,field,target,needsField:!current});
