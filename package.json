@@ -7,7 +7,8 @@
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "start:api": "node server/index.mjs"
+    "start:api": "node server/index.mjs",
+    "compile:nft:beta": "node scripts/compile-beta-nft.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
@@ -15,6 +16,8 @@
     "ethers": "^6.15.0"
   },
   "devDependencies": {
-    "vite": "^5.4.11"
+    "vite": "^5.4.11",
+    "@openzeppelin/contracts": "^5.4.0",
+    "solc": "^0.8.30"
   }
 }
