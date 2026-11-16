@@ -109,6 +109,13 @@ createServer(async (req, res) => {
       return;
     }
     if (path === '/api/polygon/status') {
+      // Read-only browser status for the explicitly approved third-party site.
+      // A missing/unapproved Origin receives no CORS permission.
+      const allowedOrigin = betaSignalCors(req.headers.origin);
+      if (allowedOrigin) {
+        res.setHeader('Access-Control-Allow-Origin', allowedOrigin);
+        res.setHeader('Vary', 'Origin');
+      }
       const status = await readPolygonAmoyStatus();
       json(res, status.connected ? 200 : 503, status);
       return;
