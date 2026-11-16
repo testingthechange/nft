@@ -22,6 +22,7 @@ async function get(path) {
 }
 async function main() {
  const relations=await get('/relations');
+ if (!Array.isArray(relations)) throw Error('Expected /relations data to be an array');
  const fields=new Map();
  let passed=0;
  console.log('READ ONLY — AJINE NFT typed relationship verification');
@@ -31,14 +32,16 @@ async function main() {
    fields.set(collection,await get('/fields/'+encodeURIComponent(collection)));
   const sourceField=fields.get(source).find(x=>x.field===field);
   const targetField=fields.get(target).find(x=>x.field==='id');
-  const matches=relations.filter(x=>x.many_collection===source&&x.many_field===field);
+  const matches=relations.filter(x=>(x.collection??x.meta?.many_collection??x.many_collection)===source &&
+   (x.field??x.meta?.many_field??x.many_field)===field);
   const relation=matches[0];
   const valid=sourceField?.type==='integer' && targetField?.type==='integer' &&
-   matches.length===1 && relation.one_collection===target &&
-   (relation.one_primary===undefined || relation.one_primary===null || relation.one_primary==='id');
+   matches.length===1 &&
+   (relation.related_collection??relation.meta?.one_collection??relation.one_collection)===target &&
+   (relation.schema?.foreign_key_column==null || relation.schema.foreign_key_column==='id');
   console.log(valid?'VERIFIED':'FAIL',source+'.'+field+' -> '+target+'.id',
    '(field='+String(sourceField?.type)+', target='+String(targetField?.type)+
-   ', relation='+String(relation?.one_collection)+', count='+matches.length+')');
+   ', relation='+String(relation&&(relation.related_collection??relation.meta?.one_collection??relation.one_collection))+', count='+matches.length+')');
   if(valid)passed++;
  }
  console.log('Verified:',passed+'/'+links.length);
