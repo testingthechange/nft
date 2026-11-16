@@ -26,3 +26,7 @@ curl -i http://localhost:3000/api/polygon/status
 ## Provider note (November 2026)
 
 Polygon deprecated its operated `rpc-amoy.polygon.technology` Amoy RPC endpoint on July 17, 2026. This patch replaces the obsolete default with OnFinality's public Amoy RPC. If existing Render environment `POLYGON_AMOY_RPC_URL` is configured, it overrides the default and MUST be updated to a working Polygon Amoy endpoint. The live Render response `rpc_unavailable` cannot distinguish an obsolete RPC from other networking errors; verify the deployed status endpoint after merge. Do not run `npm audit fix --force` without reviewing the proposed breaking upgrades.
+
+## Timeout and diagnostics
+
+The read-only Polygon status probe uses native Node `fetch` (the ethers SDK remains available for later contract reads) with a single 7-second abort deadline for both `eth_chainId` and `eth_blockNumber`. A failed response returns a bounded 503 with `reason` and `stage` (`chain_id` or `block_number`), and an upstream HTTP status for HTTP failures. It does not reveal credentials, full RPC URLs, or provider response bodies. A successful `/healthz` does not mean that outbound RPC is available. After deploying, check `/api/polygon/status` once; do not repeat unbounded curl commands. If response is `rpc_timeout`, `rpc_http_error`, or `rpc_unavailable`, inspect the indicated stage and upstream status before choosing another RPC endpoint.
