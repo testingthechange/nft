@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { previewRegistration } from './registrationPreview.mjs';
+import { BETA_SIGNAL_PATH, betaSignalCors, validateBetaSignal, betaSignalReply } from './betaRegistrationSignal.mjs';
 import { createServer } from 'node:http';
 
 // Dedicated private-token API service. The public Vite website remains a Render Static Site.
@@ -8,6 +9,7 @@ const DIRECTUS_URL = 'https://directus-on-nft.onrender.com';
 const TOKEN = process.env.AJINE_DIRECTUS_TOKEN;
 const PREVIEW_ENABLED = process.env.AJINE_REGISTRATION_PREVIEW_ENABLED === 'true';
 const PREVIEW_TOKEN = process.env.AJINE_REGISTRATION_PREVIEW_TOKEN;
+const BETA_SIGNAL_ENABLED = process.env.AJINE_BETA_REGISTRATION_SIGNAL_ENABLED === 'true';
 
 function json(res, code, payload) {
   res.writeHead(code, {
@@ -56,6 +58,28 @@ async function readJson(req) {
 createServer(async (req, res) => {
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
+    if (path === BETA_SIGNAL_PATH) {
+      // Browser metadata ONLY. No customer IDs, token or payment data ever accepted.
+      if (!BETA_SIGNAL_ENABLED) { json(res, 503, {error:'beta_signal_disabled'}); return; }
+      const origin = betaSignalCors(req.headers.origin);
+      if (!origin) { json(res, 403, {error:'origin_not_allowed'}); return; }
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Vary', 'Origin');
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204, { 'Access-Control-Allow-Methods':'POST, OPTIONS',
+          'Access-Control-Allow-Headers':'Content-Type',
+          'Access-Control-Max-Age':'300','Cache-Control':'no-store' });
+        res.end();
+        return;
+      }
+      if (req.method !== 'POST') { json(res, 405, {error:'method_not_allowed'}); return; }
+      let body;
+      try { body = await readJson(req); }
+      catch (error) { json(res, error.http || 400, {error:error.message}); return; }
+      if (!validateBetaSignal(body)) { json(res, 422, {error:'beta_signal_invalid'}); return; }
+      json(res, 200, betaSignalReply());
+      return;
+    }
     if (path === '/api/integrations/registration/preview') {
       if (req.method !== 'POST') {
         res.writeHead(405, { Allow: 'POST' }); res.end(); return;
