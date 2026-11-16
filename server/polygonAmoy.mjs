@@ -2,7 +2,7 @@ import { JsonRpcProvider } from 'ethers';
 
 // Read-only Polygon Amoy connectivity. Do not add wallets, private keys or signers here.
 export const POLYGON_AMOY_CHAIN_ID = 80002;
-export const POLYGON_AMOY_RPC_DEFAULT = 'https://rpc-amoy.polygon.technology/';
+export const POLYGON_AMOY_RPC_DEFAULT = 'https://polygon-amoy.api.onfinality.io/public';
 
 export async function readPolygonAmoyStatus({
   rpcUrl = process.env.POLYGON_AMOY_RPC_URL || POLYGON_AMOY_RPC_DEFAULT,
@@ -23,11 +23,17 @@ export async function readPolygonAmoyStatus({
   try {
     provider = makeProvider(url.href);
     const chainHex = await provider.send('eth_chainId', []);
+    if (typeof chainHex !== 'string' || !/^0x[0-9a-f]+$/i.test(chainHex)) {
+      return { connected: false, reason: 'invalid_chain_id' };
+    }
     const chainId = Number.parseInt(chainHex, 16);
     if (chainId !== POLYGON_AMOY_CHAIN_ID) {
       return { connected: false, reason: 'unexpected_chain', expected_chain_id: POLYGON_AMOY_CHAIN_ID };
     }
     const blockHex = await provider.send('eth_blockNumber', []);
+    if (typeof blockHex !== 'string' || !/^0x[0-9a-f]+$/i.test(blockHex)) {
+      return { connected: false, reason: 'invalid_block_number' };
+    }
     const blockNumber = Number.parseInt(blockHex, 16);
     if (!Number.isSafeInteger(blockNumber) || blockNumber < 0) {
       return { connected: false, reason: 'invalid_block_number' };
