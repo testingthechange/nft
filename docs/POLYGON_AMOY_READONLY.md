@@ -10,7 +10,7 @@ Expected successful response (example block height only):
 ```
 A failed connection returns 503 with a generic failure reason; no RPC credentials are returned.
 
-Optional server-only Render env `POLYGON_AMOY_RPC_URL` can point to a trusted HTTPS Amoy JSON-RPC endpoint (default `https://rpc-amoy.polygon.technology/`). Do not put secrets in the Static Site's `VITE_` environment.
+Optional server-only Render env `POLYGON_AMOY_RPC_URL` can point to a trusted HTTPS Amoy JSON-RPC endpoint (default `https://polygon-amoy.api.onfinality.io/public`). Do not put secrets in the Static Site's `VITE_` environment.
 
 ## Local checks
 
@@ -22,3 +22,7 @@ curl -i http://localhost:3000/api/polygon/status
 ```
 
 **No wallet, seed phrase, signing key, smart-contract deployment, mint, burn, Polygon mainnet access, customer account writes, or third-party website change is included.** A read-only RPC connection is not evidence that NFTs are minted, copy numbers are registered, or third-party My Collection is connected. The NFT identity contract and the return of NFT data to the third-party website require separate design, authorization, and tests.
+
+## Provider note (November 2026)
+
+Polygon deprecated its operated `rpc-amoy.polygon.technology` Amoy RPC endpoint on July 17, 2026. This patch replaces the obsolete default with OnFinality's public Amoy RPC. If existing Render environment `POLYGON_AMOY_RPC_URL` is configured, it overrides the default and MUST be updated to a working Polygon Amoy endpoint. The live Render response `rpc_unavailable` cannot distinguish an obsolete RPC from other networking errors; verify the deployed status endpoint after merge. Do not run `npm audit fix --force` without reviewing the proposed breaking upgrades.
