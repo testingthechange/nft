@@ -2,6 +2,7 @@ import { timingSafeEqual } from 'node:crypto';
 import { previewRegistration } from './registrationPreview.mjs';
 import { BETA_SIGNAL_PATH, betaSignalCors, validateBetaSignal, completeBetaRegistrationPreview } from './betaRegistrationSignal.mjs';
 import { createServer } from 'node:http';
+import { readPolygonAmoyStatus } from './polygonAmoy.mjs';
 
 // Dedicated private-token API service. The public Vite website remains a Render Static Site.
 const PORT = Number(process.env.PORT || 3000);
@@ -105,6 +106,11 @@ createServer(async (req, res) => {
     }
     if (path === '/healthz') {
       json(res, 200, { status: 'ok' });
+      return;
+    }
+    if (path === '/api/polygon/status') {
+      const status = await readPolygonAmoyStatus();
+      json(res, status.connected ? 200 : 503, status);
       return;
     }
     if (path === '/api/directus/status') {
