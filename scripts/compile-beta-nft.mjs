@@ -4,7 +4,7 @@ import {resolve} from 'node:path';
 import solc from 'solc';
 
 const require = createRequire(import.meta.url);
-const CONTRACT_PATH = resolve('contracts/AjineBetaAlbumNFT.sol');
+const CONTRACT_PATH = resolve('contracts/BetaAlbumCopyNFT.sol');
 
 function findImports(name) {
   try {
@@ -20,7 +20,7 @@ export function compileBetaAlbumNft() {
   const source=readFileSync(CONTRACT_PATH,'utf8');
   const input={
     language:'Solidity',
-    sources:{'contracts/AjineBetaAlbumNFT.sol':{content:source}},
+    sources:{'contracts/BetaAlbumCopyNFT.sol':{content:source}},
     settings:{
       optimizer:{enabled:true,runs:200},
       outputSelection:{'*':{'*':['abi','evm.bytecode.object']}}
@@ -29,7 +29,7 @@ export function compileBetaAlbumNft() {
   const output=JSON.parse(solc.compile(JSON.stringify(input),{import:findImports}));
   const errors=(output.errors || []).filter(e=>e.severity==='error');
   if(errors.length)throw Error('Solidity compilation failed: '+errors.map(e=>e.formattedMessage).join('\n'));
-  const contract=output.contracts?.['contracts/AjineBetaAlbumNFT.sol']?.AjineBetaAlbumNFT;
+  const contract=output.contracts?.['contracts/BetaAlbumCopyNFT.sol']?.BetaAlbumCopyNFT;
   if(!contract?.evm?.bytecode?.object || !contract?.abi)throw Error('missing_contract_artifacts');
   return {abi:contract.abi,bytecode:contract.evm.bytecode.object};
 }
@@ -37,7 +37,7 @@ export function compileBetaAlbumNft() {
 if(process.argv[1] && resolve(process.argv[1])===resolve(new URL(import.meta.url).pathname)) {
   const artifact=compileBetaAlbumNft();
   console.log(JSON.stringify({
-    ok:true,contract:'AjineBetaAlbumNFT',
+    ok:true,contract:'BetaAlbumCopyNFT',
     abi_entries:artifact.abi.length,bytecode_bytes:artifact.bytecode.length / 2,
     deployed:false,minted:false
   }));
