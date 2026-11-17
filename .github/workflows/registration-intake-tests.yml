@@ -4,6 +4,7 @@ on:
     paths:
       - "server/**"
       - "tests/registrationIntakeHttp.test.mjs"
+      - "tests/mockRegistrationJson.test.mjs"
       - "tests/nftRegistrationStore.test.mjs"
       - "tests/confirmedRegistrationContract.test.mjs"
       - ".github/workflows/registration-intake-tests.yml"
@@ -12,6 +13,7 @@ on:
     paths:
       - "server/**"
       - "tests/registrationIntakeHttp.test.mjs"
+      - "tests/mockRegistrationJson.test.mjs"
       - "tests/nftRegistrationStore.test.mjs"
       - "tests/confirmedRegistrationContract.test.mjs"
       - ".github/workflows/registration-intake-tests.yml"
@@ -25,4 +27,4 @@ jobs:
         with:
           node-version: '22'
       - name: Test JSON contract, Directus adapter and HTTP gates
-        run: node --test tests/confirmedRegistrationContract.test.mjs tests/nftRegistrationStore.test.mjs tests/registrationIntakeHttp.test.mjs
+        run: node --test tests/confirmedRegistrationContract.test.mjs tests/nftRegistrationStore.test.mjs tests/registrationIntakeHttp.test.mjs tests/mockRegistrationJson.test.mjs
