@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { inspectCommercialDirectusConnection } from './commercialDirectusConnection.mjs';
 import { inspectCommercialRegistrationEvidence } from './commercialRegistrationEvidence.mjs';
 import { previewRegistration } from './registrationPreview.mjs';
 import { MOCK_JSON_PATH, inspectMockJson } from './mockRegistrationJson.mjs';
@@ -128,6 +129,17 @@ createServer(async (req, res) => {
       // No outbound HTTP, customer data, private-token exposure, or database writes.
       const result = completeBetaRegistrationPreview(body, previewRegistration);
       json(res, result.ok ? 200 : 422, result);
+      return;
+    }
+    if (path === '/api/integrations/registration/evidence/connectivity') {
+      if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
+      if (process.env.AJINE_COMMERCIAL_REGISTRATION_EVIDENCE_ENABLED !== 'true') {
+        json(res,503,{error:'commercial_evidence_disabled'}); return;
+      }
+      if (!authorized(req)) { json(res,401,{error:'unauthorized'}); return; }
+      const result=await inspectCommercialDirectusConnection();
+      json(res,result.connected?200:503,{test:'commercial-directus-connection',
+        ...result,releaseAuthorized:false,stored:false});
       return;
     }
     if (path === '/api/integrations/registration/evidence/inspect') {
