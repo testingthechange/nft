@@ -1,0 +1,26 @@
+name: Verify commercial registration evidence (read only)
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      AJINE_NFT_API_BASE_URL: https://ajine-nft-api.onrender.com
+      AJINE_REGISTRATION_PREVIEW_TOKEN: ${{ secrets.AJINE_REGISTRATION_PREVIEW_TOKEN }}
+      AJINE_REGISTRATION_TEST_ID: ${{ secrets.AJINE_REGISTRATION_TEST_ID }}
+      AJINE_REGISTRATION_TEST_ALBUM_ID: ${{ secrets.AJINE_REGISTRATION_TEST_ALBUM_ID }}
+      AJINE_REGISTRATION_TEST_COPY_NUMBER: ${{ secrets.AJINE_REGISTRATION_TEST_COPY_NUMBER }}
+    steps:
+      - name: Check out tested revision
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Run private live read-only registration smoke test
+        run: node scripts/smoke-commercial-registration-evidence.mjs
