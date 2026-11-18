@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import { assembleNftFrame } from '../src/nft/assembly-frame.mjs';
+const gathering = { registrationId: 'reg-synthetic-1', albumId: 'album-synthetic-1', copyNumber: '0042', nftReference: 'nft-synthetic-1' };
+const rules = { registrationId: 'reg-synthetic-1', decision: 'eligible', permissions: { burnForRewards: true, convertToCollectibles: true, exportToWallet: false } };
+const frame = assembleNftFrame({ gathering, rules });
+assert.equal(frame.copyNumber, '0042');
+assert.equal(frame.options.burnForRewards, true);
+assert.equal(frame.options.exportToWallet, false);
+assert.equal(frame.tokenId, null);
+assert.equal(frame.chain, null);
+assert.equal(frame.status, 'prepared-not-minted');
+assert.throws(() => assembleNftFrame({ gathering, rules: { ...rules, registrationId: 'other' } }), /mismatch/);
+assert.throws(() => assembleNftFrame({ gathering, rules: { ...rules, decision: 'unknown' } }), /Invalid/);
+const held = assembleNftFrame({ gathering, rules: { registrationId: gathering.registrationId, decision: 'hold', permissions: { burnForRewards: true } } });
+assert.equal(held.options.burnForRewards, false);
+assert.throws(() => { frame.options.retain = false; }, TypeError);
+console.log('PASS: synthetic assembly contract, permissions, mismatch, hold, immutability, no chain assignment');
