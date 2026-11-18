@@ -1,0 +1,20 @@
+name: Amoy BETA deployment readiness
+on:
+  pull_request:
+    paths:
+      - 'scripts/check-amoy-beta-readiness.mjs'
+      - 'tests/amoy-beta-readiness.test.mjs'
+      - '.github/workflows/amoy-beta-readiness.yml'
+jobs:
+  offline-readiness:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-audit --no-fund
+      - run: node tests/amoy-beta-readiness.test.mjs
+      - run: npm run compile:nft:beta
