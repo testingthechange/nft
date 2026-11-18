@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { previewRegistration } from './registrationPreview.mjs';
 import { MOCK_JSON_PATH, inspectMockJson } from './mockRegistrationJson.mjs';
+import { buildNftGatheringBoard } from './nftGatheringBoard.mjs';
 import { validateConfirmedRegistrationJson } from './confirmedRegistrationContract.mjs';
 import { BETA_SIGNAL_PATH, betaSignalCors, validateBetaSignal, completeBetaRegistrationPreview } from './betaRegistrationSignal.mjs';
 import { createServer } from 'node:http';
@@ -80,7 +81,25 @@ createServer(async (req, res) => {
       try { body = await readJson(req); }
       catch(error) { json(res, error.http || 400, {error:error.message}); return; }
       const result = inspectMockJson(body, previewRegistration);
-      json(res, result.ok ? 200 : 422, result);
+      if (!result.ok) { json(res, 422, result); return; }
+      // Only after exact mock fixture validation: project the six synthetic
+      // fields onto the read-only board. No state, database, or NFT mutations.
+      const board = buildNftGatheringBoard({
+        mockRegistration: { accepted: true, record: body },
+      });
+      json(res, 200, {
+        ...result,
+        gathering_board: {
+          version: board.version,
+          mode: board.mode,
+          registration_slots: Object.fromEntries(
+            Object.entries(board.groups.registration).map(([name, field]) =>
+              [name, { value: field.value, status: field.status }])
+          ),
+          stored: false,
+          minted: false,
+        },
+      });
       return;
     }
     if (path === BETA_SIGNAL_PATH) {

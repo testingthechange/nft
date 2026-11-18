@@ -25,20 +25,33 @@ export const NFT_GATHERING_BOARD_GROUPS = Object.freeze([
   "albumArtwork", "albumCoverStamps", "returnToThirdParty", "futureBurnJingleCards",
 ]);
 
-export function buildNftGatheringBoard({ verifiedRegistration = null } = {}) {
+export function buildNftGatheringBoard({ verifiedRegistration = null, mockRegistration = null } = {}) {
   // A test-only preview MUST NOT be presented as a confirmed customer registration.
   // Actual authorization/payment checks belong to the trusted registration service.
-  const r = verifiedRegistration?.verified === true ? verifiedRegistration.record ?? {} : {};
+  const verified = verifiedRegistration?.verified === true;
+  // Mock values can be projected only by the receiver after its exact-fixture
+  // inspection. They are never ownership evidence or database records.
+  const mock = !verified && mockRegistration?.accepted === true;
+  const r = verified ? verifiedRegistration.record ?? {} : mock ? mockRegistration.record ?? {} : {};
+  const registrationSource = mock ? "thirdparty.mock-registration-json" : REGISTRATION;
+  const registrationSlot = (value) => {
+    const entry = slot(registrationSource, "nft.Abum_Registration", value);
+    return mock && entry.status === "ready"
+      ? Object.freeze({ ...entry, status: "mock_preview" }) : entry;
+  };
   const registration = group({
-    registrationId: slot(REGISTRATION, "nft.Abum_Registration", r.registration_id),
-    albumId: slot(REGISTRATION, "nft.Abum_Registration", r.album_id),
-    copyNumber: slot(REGISTRATION, "nft.Abum_Registration", r.album_copy_number),
-    registeredOwnerId: slot(REGISTRATION, "nft.Abum_Registration", r.registered_owner_id),
-    purchaseTransactionId: slot(REGISTRATION, "nft.Abum_Registration", r.purchase_transaction_id),
-    registrationDate: slot(REGISTRATION, "nft.Abum_Registration", r.registration_date),
+    registrationId: registrationSlot(r.registration_id),
+    albumId: registrationSlot(r.album_id),
+    copyNumber: registrationSlot(r.album_copy_number),
+    registeredOwnerId: registrationSlot(r.registered_owner_id),
+    purchaseTransactionId: registrationSlot(r.purchase_transaction_id),
+    registrationDate: registrationSlot(r.registration_date),
   });
   return Object.freeze({
     version: "ajine-nft-gathering-board-v1",
+    mode: mock ? "mock_preview" : verified ? "verified_projection" : "not_connected",
+    stored: false,
+    minted: false,
     identity: group({
       registrationId: registration.registrationId.value,
       albumId: registration.albumId.value,
