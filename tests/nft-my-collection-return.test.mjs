@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {buildMyCollectionReturn} from '../server/nftMyCollectionReturn.mjs';
+const base={registrationId:'PING-REG-001',albumId:'ALBUM-BETA-PING',copyNumber:'COPY-BETA-PING'};
+const preview=buildMyCollectionReturn({...base,synthetic:true});
+assert.equal(preview.destination,'thirdparty.myCollection.board.nftSlot');
+assert.equal(preview.nft.verificationStatus,'pending');
+assert.equal(preview.nft.ownershipConfirmed,false);
+assert.equal(preview.deliveryStatus,'not_sent');
+assert.equal(preview.stored,false);
+const proof={verified:true,chainId:80002,contractAddress:'0x'+'1'.repeat(40),tokenId:'2',transactionHash:'0x'+'a'.repeat(64)};
+const confirmed=buildMyCollectionReturn({...base,polygon:proof});
+assert.equal(confirmed.nft.ownershipConfirmed,true);
+assert.equal(confirmed.nft.verificationStatus,'verified');
+assert.equal(buildMyCollectionReturn({...base,polygon:proof,synthetic:true}).nft.verificationStatus,'pending');
+console.log('PASS: My Collection Board NFT slot contract and synthetic safeguards');
