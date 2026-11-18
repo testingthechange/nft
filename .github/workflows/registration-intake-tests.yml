@@ -5,6 +5,7 @@ on:
       - "server/**"
       - "tests/registrationIntakeHttp.test.mjs"
       - "tests/nftGatheringBoard.test.mjs"
+      - "tests/mockRegistrationGatheringBoard.test.mjs"
       - "tests/mockRegistrationJson.test.mjs"
       - "tests/nftRegistrationStore.test.mjs"
       - "tests/confirmedRegistrationContract.test.mjs"
@@ -15,6 +16,7 @@ on:
       - "server/**"
       - "tests/registrationIntakeHttp.test.mjs"
       - "tests/nftGatheringBoard.test.mjs"
+      - "tests/mockRegistrationGatheringBoard.test.mjs"
       - "tests/mockRegistrationJson.test.mjs"
       - "tests/nftRegistrationStore.test.mjs"
       - "tests/confirmedRegistrationContract.test.mjs"
@@ -29,4 +31,4 @@ jobs:
         with:
           node-version: '22'
       - name: Test JSON contract, Directus adapter and HTTP gates
-        run: node --test tests/confirmedRegistrationContract.test.mjs tests/nftRegistrationStore.test.mjs tests/registrationIntakeHttp.test.mjs tests/mockRegistrationJson.test.mjs tests/nftGatheringBoard.test.mjs
+        run: node --test tests/confirmedRegistrationContract.test.mjs tests/nftRegistrationStore.test.mjs tests/registrationIntakeHttp.test.mjs tests/mockRegistrationJson.test.mjs tests/nftGatheringBoard.test.mjs tests/mockRegistrationGatheringBoard.test.mjs
