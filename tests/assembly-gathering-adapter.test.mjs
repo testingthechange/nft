@@ -3,7 +3,7 @@ import { buildNftGatheringBoard } from '../server/nftGatheringBoard.mjs';
 import { assembleFromGatheringBoard } from '../server/nftAssemblyAdapter.mjs';
 const record = { registration_id:'synthetic-reg',album_id:'synthetic-album',album_copy_number:'0007',
  registered_owner_id:'synthetic-owner',purchase_transaction_id:'synthetic-purchase',registration_date:'2026-11-18T00:00:00Z' };
-const rules = { registrationId:'synthetic-reg', decision:'eligible', permissions:{burnForRewards:true} };
+const rules = { version:'ajine-nft-rules-board-v1', registrationId:'synthetic-reg', decision:'eligible', permissions:{burnForRewards:true,convertToCollectibles:false,exportToWallet:false} };
 const mock = buildNftGatheringBoard({mockRegistration:{accepted:true,record}});
 assert.throws(()=>assembleFromGatheringBoard(mock,rules),/not a verified projection/);
 const disconnected = buildNftGatheringBoard();
