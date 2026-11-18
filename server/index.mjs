@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { inspectCommercialRegistrationEvidence } from './commercialRegistrationEvidence.mjs';
 import { previewRegistration } from './registrationPreview.mjs';
 import { MOCK_JSON_PATH, inspectMockJson } from './mockRegistrationJson.mjs';
 import { buildNftGatheringBoard } from './nftGatheringBoard.mjs';
@@ -127,6 +128,26 @@ createServer(async (req, res) => {
       // No outbound HTTP, customer data, private-token exposure, or database writes.
       const result = completeBetaRegistrationPreview(body, previewRegistration);
       json(res, result.ok ? 200 : 422, result);
+      return;
+    }
+    if (path === '/api/integrations/registration/evidence/inspect') {
+      // Private server-to-server evidence inspection; no customer data echoed.
+      if (req.method !== 'POST') { json(res, 405, {error:'method_not_allowed'}); return; }
+      if (process.env.AJINE_COMMERCIAL_REGISTRATION_EVIDENCE_ENABLED !== 'true') {
+        json(res, 503, {error:'commercial_evidence_disabled'}); return;
+      }
+      if (!authorized(req)) { json(res, 401, {error:'unauthorized'}); return; }
+      let body;
+      try { body = await readJson(req); }
+      catch(error) { json(res, error.http || 400, {error:error.message}); return; }
+      const result = await inspectCommercialRegistrationEvidence({
+        registrationId:body?.registrationId,albumId:body?.albumId,copyNumber:body?.copyNumber
+      });
+      json(res, result.matched ? 200 : 422, {
+        matched:result.matched,status:result.status,reason:result.reason,
+        registrationAuthorized:false,polygonProofVerified:false,
+        releaseAuthorized:false,delivered:false,stored:false
+      });
       return;
     }
     if (path === '/api/integrations/registration/inspect') {
