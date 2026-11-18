@@ -1,0 +1,11 @@
+import assert from 'node:assert/strict';
+import {pingMyCollectionReturn,inspectMyCollectionNftSlot} from '../server/nftMyCollectionSlotPing.mjs';
+import {buildMyCollectionReturn} from '../server/nftMyCollectionReturn.mjs';
+const ping=pingMyCollectionReturn();
+assert.equal(ping.passed,true);
+assert.equal(ping.registrationMatched,true);
+assert.equal(ping.copyMatched,true);
+assert.equal(ping.liveThirdPartyDelivery,false);
+assert.equal(ping.ownershipPageRendered,false);
+assert.throws(()=>inspectMyCollectionNftSlot({...buildMyCollectionReturn({registrationId:'a',albumId:'b',copyNumber:'c',synthetic:true}),deliveryStatus:'sent'}),/synthetic_safety_violation/);
+console.log('PASS: synthetic return JSON projects into modeled NFT slot without delivery');

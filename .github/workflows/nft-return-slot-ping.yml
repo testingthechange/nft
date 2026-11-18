@@ -1,0 +1,20 @@
+name: NFT return slot ping
+on:
+  pull_request:
+    paths:
+      - 'server/nftMyCollectionSlotPing.mjs'
+      - 'server/nftMyCollectionReturn.mjs'
+      - 'tests/nft-my-collection-slot-ping.test.mjs'
+      - '.github/workflows/nft-return-slot-ping.yml'
+jobs:
+  return-contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/nft-my-collection-return.test.mjs
+      - run: node tests/nft-my-collection-slot-ping.test.mjs
