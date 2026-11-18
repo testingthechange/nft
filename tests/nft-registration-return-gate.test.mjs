@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import {buildMyCollectionReturn} from '../server/nftMyCollectionReturn.mjs';
+import {inspectRegistrationNftReturn} from '../server/nftRegistrationReturnGate.mjs';
+const original={registration_id:'r1',album_id:'a1',album_copy_number:'c1'};
+const returned=buildMyCollectionReturn({registrationId:'r1',albumId:'a1',copyNumber:'c1',synthetic:true});
+const hold=inspectRegistrationNftReturn({original,returned});
+assert.equal(hold.registrationMatched,true);
+assert.equal(hold.registrationStatus,'hold');
+assert.equal(hold.releaseAuthorized,false);
+assert.equal(hold.releaseTo,'thirdparty.myCollection.board.nftSlot');
+const mismatch=inspectRegistrationNftReturn({original:{...original,album_copy_number:'other'},returned});
+assert.equal(mismatch.registrationMatched,false);
+assert.equal(mismatch.releaseAuthorized,false);
+assert.throws(()=>inspectRegistrationNftReturn({original,returned:{...returned,destination:'thirdparty.myCollection.board.nftSlot'}}),/return_must_target_registration/);
+console.log('PASS: registration SOP gates synthetic and mismatched NFT returns');
