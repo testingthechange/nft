@@ -1,0 +1,22 @@
+name: Registration-controlled NFT return
+on:
+  pull_request:
+    paths:
+      - 'server/nftRegistrationReturnGate.mjs'
+      - 'server/nftMyCollectionReturn.mjs'
+      - 'server/nftMyCollectionSlotPing.mjs'
+      - 'tests/nft-registration-return-gate.test.mjs'
+      - '.github/workflows/nft-registration-return.yml'
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/nft-my-collection-return.test.mjs
+      - run: node tests/nft-my-collection-slot-ping.test.mjs
+      - run: node tests/nft-registration-return-gate.test.mjs

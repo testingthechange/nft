@@ -9,7 +9,7 @@ export function buildMyCollectionReturn({registrationId,albumId,copyNumber,rarit
     typeof polygon.transactionHash==='string' && /^0x[0-9a-fA-F]{64}$/.test(polygon.transactionHash);
   return Object.freeze({
     schemaVersion:'ajine.my-collection.nft-return.v1',
-    destination:'thirdparty.myCollection.board.nftSlot',
+    destination:'thirdparty.registration.board.nftReturn',
     registrationId,albumId,copyNumber,rarity,layerTwoRarity,
     nft:{network:'polygon-amoy',chainId:80002,
       contractAddress:verified?polygon.contractAddress:null,

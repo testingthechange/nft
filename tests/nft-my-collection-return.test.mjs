@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {buildMyCollectionReturn} from '../server/nftMyCollectionReturn.mjs';
 const base={registrationId:'PING-REG-001',albumId:'ALBUM-BETA-PING',copyNumber:'COPY-BETA-PING'};
 const preview=buildMyCollectionReturn({...base,synthetic:true});
-assert.equal(preview.destination,'thirdparty.myCollection.board.nftSlot');
+assert.equal(preview.destination,'thirdparty.registration.board.nftReturn');
 assert.equal(preview.nft.verificationStatus,'pending');
 assert.equal(preview.nft.ownershipConfirmed,false);
 assert.equal(preview.deliveryStatus,'not_sent');
