@@ -6,6 +6,7 @@ import { validateConfirmedRegistrationJson } from './confirmedRegistrationContra
 import { BETA_SIGNAL_PATH, betaSignalCors, validateBetaSignal, completeBetaRegistrationPreview } from './betaRegistrationSignal.mjs';
 import { createServer } from 'node:http';
 import { readPolygonAmoyStatus } from './polygonAmoy.mjs';
+import { pingMyCollectionReturn } from './nftMyCollectionSlotPing.mjs';
 import { pingNftPipeline } from '../scripts/ping-nft-pipeline.mjs';
 
 // Dedicated private-token API service. The public Vite website remains a Render Static Site.
@@ -167,6 +168,11 @@ createServer(async (req, res) => {
     }
     if (path === '/healthz') {
       json(res, 200, { status: 'ok' });
+      return;
+    }
+    if (path === '/api/nft/return/ping') {
+      // Contract-only synthetic return ping: no third-party delivery or page rendering.
+      json(res, 200, pingMyCollectionReturn());
       return;
     }
     if (path === '/api/nft/pipeline/ping') {
