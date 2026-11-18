@@ -1,11 +1,11 @@
-# Commercial Registration Evidence — integration boundary
+# Commercial Registration Evidence — source alignment
 
-Private endpoint: `POST /api/integrations/registration/evidence/inspect`.
+Commercial website's authoritative ownership source: `https://directus-otul.onrender.com/items/ownership_records`.
 
-Disabled unless `AJINE_COMMERCIAL_REGISTRATION_EVIDENCE_ENABLED=true`. Requires existing private preview bearer token, plus `AJINE_COMMERCIAL_DIRECTUS_URL` and `AJINE_COMMERCIAL_DIRECTUS_READ_TOKEN` (server-only). No customer data in response. Does not authorize NFT release or verify Polygon.
+NFT API private endpoint: `POST /api/integrations/registration/evidence/inspect`. Feature OFF unless `AJINE_COMMERCIAL_REGISTRATION_EVIDENCE_ENABLED=true`; requires existing private bearer token and server-only `AJINE_COMMERCIAL_DIRECTUS_READ_TOKEN`. Optional `AJINE_COMMERCIAL_DIRECTUS_URL` must exactly match the commercial origin, otherwise HOLD. No customer record data echoed.
 
-**Before enabling:** verify the commercial Directus collection schema and record ID semantics. Current lookup assumes `ownership_records/{registrationId}` with fields `id, album_id, copy_number, ownership_status, registered_at`. The actual commercial frontend currently reads a different Directus instance, and these field names are not yet proven. Leave the feature OFF until the schema and credentials are confirmed. A read-only service credential must have least-privilege access.
+Read-only lookup of `ownership_records/{registrationId}` checks `id`, `albumId/album_id`, `copyNumber/copy_number/album_copy_number`, `ownershipStatus/ownership_status`, and `registeredAt/registered_at`. The commercial My Collection Board supports those same field variants. **Do not equate ownership key, registration ID, album ID, and share ID.** If album ID is absent from the persisted record, HOLD rather than guessing it from share ID.
 
-Tests: `node scripts/test-commercial-registration-evidence.mjs`.
+Before enabling: verify commercial Directus token read access and whether its record `id` is the registration ID used by NFT returns. The actual persisted album ID field and token permission have not been confirmed. Even a successful lookup only provides registration evidence, never approval to release or Polygon ownership proof.
 
-This stage implements a real server-side lookup path but does **not** establish that the external Directus connection is configured or working.
+Tests: `node scripts/test-commercial-registration-evidence.mjs`. No database writes, minting or live NFT delivery.
