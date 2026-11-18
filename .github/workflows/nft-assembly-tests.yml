@@ -5,6 +5,7 @@ on:
       - 'src/nft/**'
       - 'server/nftAssemblyAdapter.mjs'
       - 'server/nftRulesBoardContract.mjs'
+      - 'server/nftPolygonHandoff.mjs'
       - 'server/nftGatheringBoard.mjs'
       - 'tests/assembly-*.test.mjs'
       - '.github/workflows/nft-assembly-tests.yml'
@@ -27,3 +28,5 @@ jobs:
         run: node tests/assembly-gathering-adapter.test.mjs
       - name: Test Gathering Rules Assembly chain
         run: node tests/assembly-rules-chain.test.mjs
+      - name: Test read-only Polygon handoff
+        run: node tests/assembly-polygon-handoff.test.mjs
