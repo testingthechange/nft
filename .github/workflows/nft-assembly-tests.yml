@@ -6,6 +6,8 @@ on:
       - 'server/nftAssemblyAdapter.mjs'
       - 'server/nftRulesBoardContract.mjs'
       - 'server/nftPolygonHandoff.mjs'
+      - 'server/nftPolygonTestnetConnection.mjs'
+      - 'server/polygonAmoy.mjs'
       - 'server/nftGatheringBoard.mjs'
       - 'tests/assembly-*.test.mjs'
       - '.github/workflows/nft-assembly-tests.yml'
@@ -30,3 +32,5 @@ jobs:
         run: node tests/assembly-rules-chain.test.mjs
       - name: Test read-only Polygon handoff
         run: node tests/assembly-polygon-handoff.test.mjs
+      - name: Test Amoy connection safety with synthetic RPC status
+        run: node tests/assembly-polygon-testnet.test.mjs
