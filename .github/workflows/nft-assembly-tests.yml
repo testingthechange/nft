@@ -24,6 +24,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install dependencies for existing BETA contract compile
+        run: npm install --no-audit --no-fund
+      - name: Compile existing Amoy BETA NFT contract (no deploy)
+        run: npm run compile:nft:beta
       - name: Test pure assembly
         run: node tests/assembly-frame.test.mjs
       - name: Test Gathering Board adapter
