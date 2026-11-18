@@ -1,0 +1,29 @@
+name: NFT Assembly read-only tests
+on:
+  pull_request:
+    paths:
+      - 'src/nft/**'
+      - 'server/nftAssemblyAdapter.mjs'
+      - 'server/nftRulesBoardContract.mjs'
+      - 'server/nftGatheringBoard.mjs'
+      - 'tests/assembly-*.test.mjs'
+      - '.github/workflows/nft-assembly-tests.yml'
+  push:
+    branches:
+      - 'feature/nft-assembly-frame-readonly'
+jobs:
+  synthetic-contract:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test pure assembly
+        run: node tests/assembly-frame.test.mjs
+      - name: Test Gathering Board adapter
+        run: node tests/assembly-gathering-adapter.test.mjs
+      - name: Test Gathering Rules Assembly chain
+        run: node tests/assembly-rules-chain.test.mjs
