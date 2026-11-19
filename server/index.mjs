@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { inspectCharacterLibrary } from './inspectCharacterLibrary.mjs';
+import { inspectLayerTwoLiveConnection } from './inspectLayerTwoLiveConnection.mjs';
 import { inspectCommercialDirectusConnection } from './commercialDirectusConnection.mjs';
 import { inspectCommercialRegistrationEvidence } from './commercialRegistrationEvidence.mjs';
 import { previewRegistration } from './registrationPreview.mjs';
@@ -225,6 +226,13 @@ createServer(async (req, res) => {
       }
       const status = await readPolygonAmoyStatus();
       json(res, status.connected ? 200 : 503, status);
+      return;
+    }
+    if (path === '/api/directus/characters/layer-two/live-test') {
+      if (process.env.AJINE_CHARACTER_DRY_RUN_ENABLED !== 'true') { json(res,503,{error:'dry_run_disabled'}); return; }
+      if (!authorized(req)) { json(res,401,{error:'unauthorized'}); return; }
+      const result=await inspectLayerTwoLiveConnection({token:TOKEN});
+      json(res,result.ok?200:503,result);
       return;
     }
     if (path === '/api/directus/characters/dry-run') {
