@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { inspectCharacterLibrary } from './inspectCharacterLibrary.mjs';
 import { inspectCommercialDirectusConnection } from './commercialDirectusConnection.mjs';
 import { inspectCommercialRegistrationEvidence } from './commercialRegistrationEvidence.mjs';
 import { previewRegistration } from './registrationPreview.mjs';
@@ -224,6 +225,14 @@ createServer(async (req, res) => {
       }
       const status = await readPolygonAmoyStatus();
       json(res, status.connected ? 200 : 503, status);
+      return;
+    }
+    if (path === '/api/directus/characters/dry-run') {
+      if (req.method !== 'GET') { json(res,405,{error:'method_not_allowed'}); return; }
+      if (process.env.AJINE_CHARACTER_DRY_RUN_ENABLED !== 'true') { json(res,503,{error:'dry_run_disabled'}); return; }
+      if (!authorized(req)) { json(res,401,{error:'unauthorized'}); return; }
+      const result = await inspectCharacterLibrary({token:TOKEN});
+      json(res,result.ok?200:503,result);
       return;
     }
     if (path === '/api/directus/status') {
