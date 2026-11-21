@@ -25,3 +25,12 @@ test('missing token fails closed',async()=>{
  const result=await pingPipeline2RegistrationDirectus({});
  assert.equal(result.ok,false);
 });
+
+test('upstream status categories are sanitized without response body', async () => {
+ for (const [status, reason] of [[401,'directus_auth_rejected'],[403,'directus_access_denied'],[404,'directus_collection_not_found'],[400,'directus_query_rejected'],[503,'directus_server_unavailable']]) {
+  const result=await pingPipeline2RegistrationDirectus({token:'x'.repeat(32),fetchImpl:async()=>({ok:false,status,json:async()=>({secret:'must-not-appear'})})});
+  assert.equal(result.ok,false); assert.equal(result.reason,reason);
+  assert.equal(result.upstream_http_status,status);
+  assert.equal(JSON.stringify(result).includes('must-not-appear'),false);
+ }
+});
