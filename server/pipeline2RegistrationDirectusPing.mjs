@@ -21,7 +21,19 @@ export async function pingPipeline2RegistrationDirectus({
       signal: AbortSignal.timeout(8000),
       redirect: 'error'
     });
-    if (!response.ok) return fail('directus_read_failed');
+    if (!response.ok) {
+      // Status-only diagnosis: never return upstream response bodies or tokens.
+      const status = Number(response.status);
+      const category = status === 401 ? 'directus_auth_rejected'
+        : status === 403 ? 'directus_access_denied'
+        : status === 404 ? 'directus_collection_not_found'
+        : status === 400 ? 'directus_query_rejected'
+        : status === 429 ? 'directus_rate_limited'
+        : status >= 500 && status <= 599 ? 'directus_server_unavailable'
+        : 'directus_read_failed';
+      return { ...fail(category), upstream_http_status:
+        Number.isInteger(status) && status >= 100 && status <= 599 ? status : null };
+    }
     const payload = await response.json();
     if (!Array.isArray(payload?.data)) return fail('invalid_directus_response');
     if (payload.data.length > 1) return fail('invalid_directus_response');
