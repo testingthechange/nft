@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { pingPipeline2RegistrationDirectus } from './pipeline2RegistrationDirectusPing.mjs';
 import { pipeline2ConnectionEnabled, validatePipeline2Handshake } from './pipeline2Connection.mjs';
 import { inspectCharacterLibrary } from './inspectCharacterLibrary.mjs';
 import { inspectLayerTwoLiveConnection } from './inspectLayerTwoLiveConnection.mjs';
@@ -72,6 +73,19 @@ async function readJson(req) {
 createServer(async (req, res) => {
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
+    if (path === '/api/pipeline2/directus/ping') {
+      if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
+      if (!pipeline2ConnectionEnabled()) { json(res,503,{error:'connection_disabled'}); return; }
+      const expected = Buffer.from(process.env.AJINE_PIPELINE2_CONNECTION_TOKEN);
+      const header = req.headers.authorization || '';
+      const supplied = Buffer.from(header.startsWith('Bearer ') ? header.slice(7) : '');
+      if (supplied.length !== expected.length || !timingSafeEqual(supplied,expected)) {
+        json(res,401,{error:'unauthorized'}); return;
+      }
+      const result = await pingPipeline2RegistrationDirectus({token:TOKEN,baseUrl:DIRECTUS_URL});
+      json(res,result.ok?200:503,result);
+      return;
+    }
     if (path === '/api/pipeline2/connection/ping') {
       if (req.method !== 'POST') { json(res, 405, { error: 'method_not_allowed' }); return; }
       if (!pipeline2ConnectionEnabled()) { json(res, 503, { error: 'connection_disabled' }); return; }
