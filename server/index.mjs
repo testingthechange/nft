@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { pipeline2ConnectionEnabled, validatePipeline2Handshake } from './pipeline2Connection.mjs';
 import { inspectCharacterLibrary } from './inspectCharacterLibrary.mjs';
 import { inspectLayerTwoLiveConnection } from './inspectLayerTwoLiveConnection.mjs';
 import { inspectCommercialDirectusConnection } from './commercialDirectusConnection.mjs';
@@ -71,6 +72,22 @@ async function readJson(req) {
 createServer(async (req, res) => {
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
+    if (path === '/api/pipeline2/connection/ping') {
+      if (req.method !== 'POST') { json(res, 405, { error: 'method_not_allowed' }); return; }
+      if (!pipeline2ConnectionEnabled()) { json(res, 503, { error: 'connection_disabled' }); return; }
+      const expected = Buffer.from(process.env.AJINE_PIPELINE2_CONNECTION_TOKEN);
+      const header = req.headers.authorization || '';
+      const supplied = Buffer.from(header.startsWith('Bearer ') ? header.slice(7) : '');
+      if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+        json(res, 401, { error: 'unauthorized' }); return;
+      }
+      let body;
+      try { body = await readJson(req); }
+      catch (error) { json(res, error.http || 400, { error: error.message }); return; }
+      const result = validatePipeline2Handshake(body);
+      json(res, result.ok ? 200 : 422, result);
+      return;
+    }
     if (path === MOCK_JSON_PATH) {
       if (!MOCK_JSON_ENABLED) { json(res, 503, {error:'mock_json_disabled'}); return; }
       const origin = betaSignalCors(req.headers.origin);
