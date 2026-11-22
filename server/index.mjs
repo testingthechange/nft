@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { assemblePipeline1OwnershipReturn } from './pipeline1ConsolidatedReturn.mjs';
 import { pingPipeline2RegistrationDirectus } from './pipeline2RegistrationDirectusPing.mjs';
 import { pipeline2ConnectionEnabled, validatePipeline2Handshake } from './pipeline2Connection.mjs';
 import { inspectCharacterLibrary } from './inspectCharacterLibrary.mjs';
@@ -193,6 +194,52 @@ createServer(async (req, res) => {
         registrationAuthorized:false,polygonProofVerified:false,
         releaseAuthorized:false,delivered:false,stored:false
       });
+      return;
+    }
+    if (path === '/api/integrations/registration/pipeline1/return-test') {
+      // Server-to-server Pipeline 1 round-trip. No release or persistence.
+      if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
+      if (process.env.AJINE_PIPELINE1_RETURN_ENABLED !== 'true') {
+        json(res,503,{error:'pipeline1_return_disabled'}); return;
+      }
+      if (!authorized(req)) { json(res,401,{error:'unauthorized'}); return; }
+      const token = process.env.AJINE_PIPELINE1_RETURN_TOKEN;
+      if (!token || token.length < 32) {
+        json(res,503,{error:'return_token_not_configured'}); return;
+      }
+      let body;
+      try { body = await readJson(req); }
+      catch(error) { json(res,error.http || 400,{error:error.message}); return; }
+      try {
+        // Inputs are untrusted; assembler enforces identity consistency.
+        // Always hold: no live payment or Polygon proof is established here.
+        const {registration,purchase,ownership} = body || {};
+        const returnPackage = assemblePipeline1OwnershipReturn({
+          registration,purchase,ownership,synthetic:true,
+          registrationAuthorized:false,polygonProofVerified:false
+        });
+        const response = await fetch(
+          'https://stripe-beta.onrender.com/api/registration/pipeline1/return', {
+            method:'POST',
+            headers:{'Content-Type':'application/json',Authorization:'Bearer ' + token},
+            body:JSON.stringify({originalRegistration:registration,returnPackage}),
+            signal:AbortSignal.timeout(10000)
+          });
+        const receipt = await response.json().catch(()=>null);
+        if (!response.ok || receipt?.received !== true ||
+            receipt?.registrationMatched !== true || receipt?.stored !== false ||
+            receipt?.delivered !== false) {
+          json(res,502,{ok:false,error:'registration_return_not_confirmed',
+            upstreamStatus:response.status,stored:false,delivered:false});
+          return;
+        }
+        json(res,200,{ok:true,roundTripConfirmed:true,registrationMatched:true,
+          copyNumber:receipt.copyNumber,status:'hold',
+          stored:false,delivered:false});
+      } catch(error) {
+        json(res,422,{ok:false,error:error?.message || 'invalid_pipeline1_package',
+          stored:false,delivered:false});
+      }
       return;
     }
     if (path === '/api/integrations/registration/inspect') {
