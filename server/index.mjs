@@ -205,10 +205,23 @@ createServer(async (req, res) => {
       try { body = await readJson(req); }
       catch (error) { json(res, error.http || 400, {error:error.message}); return; }
       const result = validateConfirmedRegistrationJson(body);
-      // Never echo customer IDs or payload. This is not production intake.
+      // Pipeline 1 landing proof: project the validated registration contract
+      // into the existing Gathering Board without persisting or echoing PII.
+      const board = result.ok ? buildNftGatheringBoard({
+        verifiedRegistration:{verified:true,record:result.record}
+      }) : null;
+      const landing = board ? Object.fromEntries(
+        Object.entries(board.groups.registration).map(([field, entry]) =>
+          [field, {status:entry.status, destination:entry.destination}])
+      ) : null;
+      const allLanded = board && Object.values(landing).every(entry => entry.status === "ready");
       json(res, result.ok ? 200 : 422, result.ok
-        ? {ok:true, schema_version:1, validated:true, stored:false,
-          payment_verified:false, minted:false}
+        ? {ok:true, schema_version:1, validated:true,
+          pipeline:"pipeline_1", gathering_board_version:board.version,
+          gathering_board_mode:board.mode,
+          registration_slots:landing, all_six_slots_landed:allLanded,
+          stored:false, payment_verified:false, minted:false,
+          ownership_delivery:false}
         : {ok:false, error:result.error, field:result.field});
       return;
     }
