@@ -73,7 +73,25 @@ test("enabled NFT intake rejects missing token, rejects malformed payload, valid
     const valid = await send(base, payload);
     assert.equal(valid.status, 200);
     const reply = await valid.json();
-    assert.deepEqual(reply, {ok:true,schema_version:1,validated:true,stored:false,payment_verified:false,minted:false});
+    assert.equal(reply.ok, true);
+    assert.equal(reply.schema_version, 1);
+    assert.equal(reply.validated, true);
+    assert.equal(reply.pipeline, "pipeline_1");
+    assert.equal(reply.gathering_board_version, "ajine-nft-gathering-board-v1");
+    assert.equal(reply.gathering_board_mode, "verified_projection");
+    assert.equal(reply.all_six_slots_landed, true);
+    assert.deepEqual(Object.keys(reply.registration_slots).sort(), [
+      "registrationId","albumId","copyNumber","registeredOwnerId",
+      "purchaseTransactionId","registrationDate"
+    ].sort());
+    for (const slot of Object.values(reply.registration_slots)) {
+      assert.equal(slot.status, "ready");
+      assert.equal(slot.destination, "nft.Abum_Registration");
+    }
+    assert.equal(reply.stored, false);
+    assert.equal(reply.payment_verified, false);
+    assert.equal(reply.minted, false);
+    assert.equal(reply.ownership_delivery, false);
     assert.equal(JSON.stringify(reply).includes(payload.registered_owner_id), false);
     const extraField = await send(base, {...payload, credit_card_number:"4111111111111111"});
     assert.equal(extraField.status, 422);
