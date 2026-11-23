@@ -1,0 +1,63 @@
+name: Pipeline 1 Step 5 round-trip verification
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Verify NFT API to Registration return (synthetic, no writes)
+        env:
+          NFT_PREVIEW_TOKEN: ${{ secrets.AJINE_REGISTRATION_PREVIEW_TOKEN }}
+        run: |
+          node --input-type=module <<'NODE'
+          const token=process.env.NFT_PREVIEW_TOKEN;
+          if(!token || token.length<32) {
+            console.error('FAIL: GitHub Actions secret AJINE_REGISTRATION_PREVIEW_TOKEN is missing or too short');
+            process.exit(1);
+          }
+          const id='STEP5-SYNTHETIC-135';
+          const registration={
+            registration_id:id,
+            album_id:'beta-max',
+            album_copy_number:'135',
+            registered_owner_id:'step5-test-owner',
+            purchase_transaction_id:'step5-test-transaction',
+            registration_date:'2026-11-23T00:00:00.000Z'
+          };
+          const purchase={
+            transactionId:registration.purchase_transaction_id,
+            albumId:registration.album_id,
+            orderNumber:'STEP5-TEST-ORDER',
+            pricePaidCents:999,
+            currency:'USD'
+          };
+          const ownership={
+            registrationId:id,
+            albumId:registration.album_id,
+            copyNumber:registration.album_copy_number,
+            ownerId:registration.registered_owner_id,
+            ownershipKey:'STEP5-TEST-KEY'
+          };
+          try {
+            const response=await fetch('https://ajine-nft-api.onrender.com/api/integrations/registration/pipeline1/return-test',{
+              method:'POST',
+              headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+              body:JSON.stringify({registration,purchase,ownership}),
+              signal:AbortSignal.timeout(25000)
+            });
+            const result=await response.json().catch(()=>({}));
+            const pass=response.status===200 && result.ok===true &&
+              result.roundTripConfirmed===true && result.registrationMatched===true &&
+              result.status==='hold' && result.stored===false && result.delivered===false &&
+              String(result.copyNumber)==='135';
+            console.log(JSON.stringify({httpStatus:response.status,pass,
+              roundTripConfirmed:result.roundTripConfirmed===true,
+              registrationMatched:result.registrationMatched===true,
+              status:result.status,stored:result.stored,delivered:result.delivered,
+              error:result.error,upstreamStatus:result.upstreamStatus}));
+            if(!pass)process.exitCode=1;
+          }catch(e){console.error('FAIL: request could not complete:',e.message);process.exitCode=1;}
+          NODE
