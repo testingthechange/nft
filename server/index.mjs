@@ -72,6 +72,17 @@ async function readJson(req) {
   catch { const e = Error('invalid_json'); e.http = 400; throw e; }
 }
 createServer(async (req, res) => {
+  // Minimal intake trace: no headers, body, tokens, or customer identifiers.
+  const isRegistrationInspect = req.method === 'POST' &&
+    new URL(req.url, 'http://localhost').pathname === '/api/integrations/registration/inspect';
+  if (isRegistrationInspect) {
+    console.info('AJINE_NFT_INTAKE_REQUEST', JSON.stringify({route:'registration.inspect',stage:'received'}));
+    const originalWriteHead = res.writeHead.bind(res);
+    res.writeHead = function(statusCode, ...args) {
+      console.info('AJINE_NFT_INTAKE_REQUEST', JSON.stringify({route:'registration.inspect',stage:'response',httpStatus:statusCode}));
+      return originalWriteHead(statusCode, ...args);
+    };
+  }
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
     if (path === '/api/pipeline2/directus/ping') {
