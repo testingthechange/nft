@@ -101,6 +101,7 @@ createServer(async (req, res) => {
         const valid=evidence.registrationVerified===true&&
           evidence.paymentRecordMatched===true&&evidence.ownershipVerified===true;
         json(res,valid?200:422,{passed:valid,
+          registrationId:evidence.registrationId,
           checks:{registration:valid,paymentRecord:valid,exactOwnershipCopy:valid},
           rarityVerified:false,metadataVerified:false,mintAuthorized:false,minted:false});
       }catch(error){
