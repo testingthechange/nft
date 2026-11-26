@@ -366,9 +366,9 @@ createServer(async (req, res) => {
       const receipt=await response.json().catch(()=>null);
       const landed=response.ok && receipt?.received===true && receipt?.validated===true &&
         receipt?.registrationMatched===true && receipt?.stored===false && receipt?.delivered===false &&
-        receipt?.nftFieldsReceived===true;
+        receipt?.nftFieldsReceived===true && receipt?.directusWriteTest?.passed===true && receipt?.directusWriteTest?.rolledBack===true;
       json(res,landed?200:503,{passed:landed,fixtureOnly:true,checks,verifiedWalletForwarded:checks.verifiedWallet,
-        registrationReceiverContacted:true,registrationReceiverConfirmed:landed,upstreamStatus:response.status,stored:false,delivered:false});
+        registrationReceiverContacted:true,registrationReceiverConfirmed:response.ok && receipt?.registrationMatched===true && receipt?.nftFieldsReceived===true,directusWriteTest:receipt?.directusWriteTest??null,upstreamStatus:response.status,stored:false,delivered:false});
       return;
     }
     if (path === '/api/nft/return/ping') {
