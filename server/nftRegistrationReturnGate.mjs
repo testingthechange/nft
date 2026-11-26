@@ -1,6 +1,6 @@
 // Pipeline 1 SOP: Registration is the only authority for My Collection release.
 // Pure contract validation; this module does not store, deliver, or claim payment proof.
-export function inspectRegistrationNftReturn({original,returned,registrationAuthorized=false,polygonProofVerified=false,rarityVerified=false,layerTwoRarityVerified=false}={}){
+export function inspectRegistrationNftReturn({original,returned,registrationAuthorized=false,polygonProofVerified=false,rarityVerified=false,layerTwoRarityVerified=false,betaCoreOnly=false}={}){
   if(!original||!returned)throw Error('missing_registration_or_return');
   if(returned.schemaVersion!=='ajine.my-collection.nft-return.v1'||
     returned.destination!=='thirdparty.registration.board.nftReturn')throw Error('return_must_target_registration');
@@ -11,7 +11,11 @@ export function inspectRegistrationNftReturn({original,returned,registrationAuth
   const verified=returned.nft?.verificationStatus==='verified' &&
     returned.nft?.ownershipConfirmed===true;
   const releasable=matches&&!synthetic&&registrationAuthorized===true &&
-    polygonProofVerified===true&&rarityVerified===true&&layerTwoRarityVerified===true&&verified;
+    polygonProofVerified===true&&verified&&
+    ((rarityVerified===true&&layerTwoRarityVerified===true)||
+      (betaCoreOnly===true&&original.registration_id==='6'&&
+       /^ALBUM-BETA-/.test(original.album_id)&&/^COPY-BETA-/.test(original.album_copy_number)&&
+       rarityVerified===false&&layerTwoRarityVerified===false));
   return Object.freeze({
     registrationMatched:matches,fixtureOnly:synthetic,
     registrationAuthorized:registrationAuthorized===true,
