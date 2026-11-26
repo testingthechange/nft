@@ -11,7 +11,10 @@ export async function readCommercialPreprintRegistration(registrationId,{fetcher
   body:JSON.stringify(latest?{lookup:'latest_verified_beta'}:{registrationId:String(registrationId)}),
   signal:AbortSignal.timeout(10000),redirect:'error'
  });
- if(!response.ok)throw Error('PREPRINT_REGISTRATION_READBACK_FAILED');
+ if(!response.ok){
+   console.warn('AJINE_PREPRINT_READBACK_HTTP',JSON.stringify({status:response.status}));
+   throw Error('PREPRINT_REGISTRATION_READBACK_FAILED');
+ }
  const body=await response.json();
  const e=body?.evidence;
  if(body.ok!==true||body.mintAuthorized!==false||
