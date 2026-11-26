@@ -16,7 +16,7 @@ export async function executeInternalBetaMint({board,rules,metadataUri,authoriza
  assertFirstPrintAcceptance({board,authorization,metadataUri,verifiedEvidence});
  const frame=assembleFromGatheringBoard(board,rules);
  if(frame.decision!=='eligible'||authorization?.registrationVerified!==true||
- authorization?.rarityVerified!==true||authorization?.layerTwoRarityVerified!==true||
+ (authorization?.betaCoreOnly!==true && (authorization?.rarityVerified!==true||authorization?.layerTwoRarityVerified!==true))||
  authorization?.registrationId!==frame.registrationId||authorization?.albumId!==frame.albumId||
  authorization?.copyNumber!==frame.copyNumber) throw Error('MINT_NOT_AUTHORIZED');
  if(!frame.albumId.startsWith('ALBUM-BETA-')||!frame.copyNumber.startsWith('COPY-BETA-')) throw Error('BETA_IDENTITY_REQUIRED');
