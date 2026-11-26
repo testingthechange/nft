@@ -111,7 +111,7 @@ createServer(async (req, res) => {
       }
       try{
         const result=await runFirstBetaMint({registrationId:'6',metadataUri:body.metadataUri});
-        json(res,200,{ok:true,...result});
+        json(res,result.stored===true?200:202,{ok:result.stored===true,...result});
       }catch(error){
         // Never retry an uncertain transaction automatically; reconcile by exact copy on Polygon.
         const uncertain=String(error?.message||'').startsWith('MINT_CONFIRMATION_UNCERTAIN_RECONCILE_');
