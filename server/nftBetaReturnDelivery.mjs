@@ -19,7 +19,11 @@ export async function deliverVerifiedBetaReturn({originalRegistration,returnPack
     body:JSON.stringify({originalRegistration,returnPackage}),
     signal:AbortSignal.timeout(12000)
   });
-  if(!response.ok)throw Error('BETA_RETURN_STORE_HTTP_'+response.status);
+  if(!response.ok){
+    const rejected=await response.json().catch(()=>null);
+    const code=typeof rejected?.error==='string'&&/^[A-Za-z][A-Za-z0-9_]{0,79}$/.test(rejected.error)?rejected.error:'UNCLASSIFIED';
+    throw Error('BETA_RETURN_STORE_HTTP_'+response.status+'_'+code);
+  }
   const data=await response.json();
   if(data?.ok!==true||data?.validated!==true||
      data?.registrationMatched!==true||data?.stored!==true)
