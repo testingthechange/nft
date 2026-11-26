@@ -26,3 +26,11 @@ test('requires configured server token and valid registration',async()=>{
  await assert.rejects(()=>readCommercialPreprintRegistration('0',{env}),/INVALID_PREPRINT_REGISTRATION_ID/);
  await assert.rejects(()=>readCommercialPreprintRegistration('7',{env:{}}),/TOKEN_UNAVAILABLE/);
 });
+
+test('looks up newest verified beta registration without manually supplied ID',async()=>{
+ let request;
+ const fetcher=async(_url,opts)=>{request=JSON.parse(opts.body);return {ok:true,json:async()=>({ok:true,mintAuthorized:false,evidence})};};
+ const result=await readCommercialPreprintRegistration(undefined,{env,fetcher});
+ assert.deepEqual(request,{lookup:'latest_verified_beta'});
+ assert.equal(result.registrationId,'7');
+});
