@@ -2,6 +2,7 @@
 // Never trust caller-supplied payment, ownership, rarity or chain proof.
 import {readCommercialPreprintRegistration} from './nftCommercialPreprintEvidence.mjs';
 import {prepareInternalMintReturn} from './nftInternalMintReturn.mjs';
+import {deliverVerifiedBetaReturn} from './nftBetaReturnDelivery.mjs';
 
 let mintInProgress=false;
 export async function runFirstBetaMint({registrationId,metadataUri,env=process.env}={}){
@@ -47,8 +48,27 @@ export async function runFirstBetaMint({registrationId,metadataUri,env=process.e
       verifiedRegistration:{verified:true,record:registration},
       purchase,ownership,rules,metadataUri,authorization
     });
-    // Never claim commercial delivery: this internal function currently only prepares the return.
-    return Object.freeze({mintVerified:true,returnPrepared:true,stored:false,delivered:false,
-      registrationId:e.registrationId,returnPackage:result.returnPackage});
+    // Preserve the confirmed on-chain transaction even if commercial delivery fails.
+    // This is NOT safe to retry by minting again; reconcile exact copy on Amoy.
+    const proof=result.returnPackage.nft;
+    let stored=false,deliveryStatus='not_confirmed';
+    try{
+      const delivered=await deliverVerifiedBetaReturn({
+        originalRegistration:registration,returnPackage:result.returnPackage,env
+      });
+      stored=delivered.stored;
+      deliveryStatus=stored?'stored':'not_confirmed';
+    }catch(error){
+      deliveryStatus='reconciliation_required';
+      console.error('AJINE_BETA_MINT_RETURN_NOT_STORED',JSON.stringify({
+        registrationId:'6',transactionHash:proof.transactionHash,
+        reason:String(error?.message||'UNKNOWN').slice(0,100)
+      }));
+    }
+    return Object.freeze({mintVerified:true,returnPrepared:true,stored,
+      delivered:stored,deliveryStatus,reconciliationRequired:!stored,
+      registrationId:e.registrationId,chainId:80002,
+      contractAddress:proof.contractAddress,tokenId:proof.tokenId,
+      transactionHash:proof.transactionHash,verifiedWallet:proof.verifiedWallet});
   }finally{mintInProgress=false;}
 }
