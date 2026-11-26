@@ -2,13 +2,13 @@
 import {buildNftGatheringBoard} from './nftGatheringBoard.mjs';
 import {assemblePipeline1OwnershipReturn} from './pipeline1ConsolidatedReturn.mjs';
 import {executeInternalBetaMint} from './nftInternalBetaMint.mjs';
-export async function prepareInternalMintReturn({verifiedRegistration,purchase,ownership,rules,metadataUri,authorization}={}) {
+export async function prepareInternalMintReturn({verifiedRegistration,purchase,ownership,rules,metadataUri,authorization,verifiedEvidence}={}) {
  if(verifiedRegistration?.verified!==true) throw Error('REGISTRATION_NOT_VERIFIED');
  const registration=verifiedRegistration.record;
  const board=buildNftGatheringBoard({verifiedRegistration});
  // Validate all return streams before any irreversible transaction.
  assemblePipeline1OwnershipReturn({registration,purchase,ownership,synthetic:true});
- const proof=await executeInternalBetaMint({board,rules,metadataUri,authorization});
+ const proof=await executeInternalBetaMint({board,rules,metadataUri,authorization,verifiedEvidence});
  const returnedBoard=buildNftGatheringBoard({verifiedRegistration,verifiedPolygon:proof});
  const p=returnedBoard.groups.polygon;
  const polygon={verified:true,chainId:80002,contractAddress:p.contractAddress.value,tokenId:p.tokenId.value,transactionHash:p.mintTransactionHash.value,verifiedWallet:p.verifiedWallet.value};
