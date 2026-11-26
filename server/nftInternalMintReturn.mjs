@@ -18,7 +18,7 @@ export async function prepareInternalMintReturn({verifiedRegistration,purchase,o
     commercial.currency!==purchase?.currency||
     commercial.verified!==true)
    throw Error('PREPRINT_COMMERCIAL_REGISTRATION_MISMATCH');
- // Retrieve immutable metadata from IPFS, independently of caller claims.
+ // Read and verify operator-allowlisted HTTPS or immutable IPFS metadata independently.
  const metadata=await readVerifiedBetaMetadata({metadataUri,identity:{
    registrationId:commercial.registrationId,albumId:commercial.albumId,
    copyNumber:commercial.copyNumber
@@ -45,7 +45,7 @@ export async function prepareInternalMintReturn({verifiedRegistration,purchase,o
  const returnedBoard=buildNftGatheringBoard({verifiedRegistration,verifiedPolygon:proof});
  const p=returnedBoard.groups.polygon;
  const polygon={verified:true,chainId:80002,contractAddress:p.contractAddress.value,tokenId:p.tokenId.value,transactionHash:p.mintTransactionHash.value,verifiedWallet:p.verifiedWallet.value};
- const returnPackage=assemblePipeline1OwnershipReturn({registration,purchase,ownership,polygon,synthetic:false,registrationAuthorized:true,polygonProofVerified:true,rarityVerified:authorization.rarityVerified===true,layerTwoRarityVerified:authorization.layerTwoRarityVerified===true});
+ const returnPackage=assemblePipeline1OwnershipReturn({registration,purchase,ownership,polygon,synthetic:false,registrationAuthorized:true,polygonProofVerified:true,rarityVerified:authorization.rarityVerified===true,layerTwoRarityVerified:authorization.layerTwoRarityVerified===true,betaCoreOnly:authorization.betaCoreOnly===true});
  if(returnPackage.releaseAuthorized!==true) throw Error('RETURN_RELEASE_HELD');
  return Object.freeze({board:returnedBoard,returnPackage,stored:false,delivered:false});
 }
