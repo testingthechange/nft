@@ -1,4 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
+import { runFirstBetaMint } from './nftBetaMintExecution.mjs';
 import { assemblePipeline1OwnershipReturn } from './pipeline1ConsolidatedReturn.mjs';
 import { pingPipeline2RegistrationDirectus } from './pipeline2RegistrationDirectusPing.mjs';
 import { pipeline2ConnectionEnabled, validatePipeline2Handshake } from './pipeline2Connection.mjs';
@@ -86,6 +87,43 @@ createServer(async (req, res) => {
   }
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
+    if (path === '/api/nft/polygon/beta-mint') {
+      if (req.method !== 'POST') { json(res,405,{ok:false,error:'method_not_allowed'}); return; }
+      if (process.env.AJINE_BETA_MINT_ENDPOINT_ENABLED !== 'true' ||
+          process.env.AJINE_AMOY_MINT_ENABLED !== 'true' ||
+          process.env.AJINE_BETA_MINT_DELIVERY_READY !== 'true') {
+        json(res,503,{ok:false,error:'beta_mint_locked',minted:false}); return;
+      }
+      const token=process.env.AJINE_BETA_MINT_OPERATOR_TOKEN;
+      const header=String(req.headers.authorization||'');
+      const supplied=Buffer.from(header.startsWith('Bearer ')?header.slice(7):'');
+      const expected=Buffer.from(typeof token==='string'?token:'');
+      if(!token||token.length<32||supplied.length!==expected.length||
+         !timingSafeEqual(supplied,expected)) {
+        json(res,401,{ok:false,error:'unauthorized'}); return;
+      }
+      let body;
+      try{body=await readJson(req);}
+      catch(error){json(res,error.http||400,{ok:false,error:error.message});return;}
+      if(String(body?.registrationId)!=='6'||typeof body?.metadataUri!=='string'||
+         body.metadataUri.length>2048) {
+        json(res,422,{ok:false,error:'beta_mint_request_invalid'});return;
+      }
+      try{
+        const result=await runFirstBetaMint({registrationId:'6',metadataUri:body.metadataUri});
+        json(res,200,{ok:true,...result});
+      }catch(error){
+        // Never retry an uncertain transaction automatically; reconcile by exact copy on Polygon.
+        const uncertain=String(error?.message||'').startsWith('MINT_CONFIRMATION_UNCERTAIN_RECONCILE_');
+        console.error('AJINE_BETA_MINT_ATTEMPT',JSON.stringify({
+          registrationId:'6',errorCode:uncertain?'CONFIRMATION_UNCERTAIN':String(error?.message||'MINT_FAILED').slice(0,90)
+        }));
+        json(res,uncertain?409:422,{ok:false,
+          error:uncertain?'mint_confirmation_uncertain_reconcile_required':'beta_mint_failed',
+          reconciliationRequired:uncertain,delivered:false});
+      }
+      return;
+    }
     if (path === '/api/nft/preprint/registration-check') {
       // Read-only, private check. Returns booleans only; does not return owner or payment details.
       if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
