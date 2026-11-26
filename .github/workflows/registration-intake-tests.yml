@@ -36,5 +36,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install API dependencies
+        run: npm install --no-audit --no-fund
       - name: Test JSON contract, Directus adapter and HTTP gates
         run: node --test tests/confirmedRegistrationContract.test.mjs tests/nftRegistrationStore.test.mjs tests/registrationIntakeHttp.test.mjs tests/mockRegistrationJson.test.mjs tests/nftGatheringBoard.test.mjs tests/mockRegistrationGatheringBoard.test.mjs tests/albumRarityEngineFrame.test.mjs tests/albumRarityGatheringBoardConnection.test.mjs tests/albumRarityLayerOneEvaluator.test.mjs
