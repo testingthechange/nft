@@ -1,3 +1,4 @@
+import {assemblePipeline1OwnershipReturn} from './pipeline1ConsolidatedReturn.mjs';
 // One-copy beta mint entry point. Restricted to verified Registration #6.
 // Never trust caller-supplied payment, ownership, rarity or chain proof.
 import {readCommercialPreprintRegistration} from './nftCommercialPreprintEvidence.mjs';
@@ -71,4 +72,19 @@ export async function runFirstBetaMint({registrationId,metadataUri,env=process.e
       contractAddress:proof.contractAddress,tokenId:proof.tokenId,
       transactionHash:proof.transactionHash,verifiedWallet:proof.verifiedWallet});
   }finally{mintInProgress=false;}
+}
+
+ // Recovery is restricted to the already confirmed first copy. No mint call.
+export async function recoverFirstBetaReturn({env=process.env}={}){
+ if(env.AJINE_BETA_MINT_ENDPOINT_ENABLED!=='false')throw Error('MINT_MUST_BE_LOCKED');
+ const e=await readCommercialPreprintRegistration('6');
+ if(e.verified!==true||e.registrationVerified!==true||e.paymentRecordMatched!==true||e.ownershipVerified!==true||e.registrationId!=='6'||e.albumId!=='ALBUM-BETA-share_475784'||e.copyNumber!=='COPY-BETA-6')throw Error('RECOVERY_IDENTITY_MISMATCH');
+ const registration={registration_id:e.registrationId,album_id:e.albumId,album_copy_number:e.copyNumber,registered_owner_id:e.registeredOwnerId,purchase_transaction_id:e.purchaseTransactionId,registration_date:e.registrationDate};
+ const purchase={transactionId:e.purchaseTransactionId,albumId:e.albumId,orderNumber:e.orderNumber,pricePaidCents:e.pricePaidCents,currency:e.currency};
+ const ownership={registrationId:e.registrationId,albumId:e.albumId,copyNumber:e.copyNumber,ownerId:e.registeredOwnerId,ownershipKey:'BETA-6'};
+ const polygon={verified:true,chainId:80002,contractAddress:'0x8EC4B43BFC77a51aeE9B6A0E2C7203755515c1C9',tokenId:'1',transactionHash:'0x5695f47daacca1d6b4f42df85355485ee90654cf5ec0cac3680c83ba3932c38b',verifiedWallet:'0xA55bD5F6621B8cbe77C9FE62744a3d8779D23A39'};
+ // Registration independently verifies this fixed proof against Amoy before any write.
+ const returnPackage=assemblePipeline1OwnershipReturn({registration,purchase,ownership,polygon,synthetic:false,registrationAuthorized:true,polygonProofVerified:true,betaCoreOnly:true,rarityVerified:false,layerTwoRarityVerified:false});
+ const result=await deliverVerifiedBetaReturn({originalRegistration:registration,returnPackage,env});
+ return {stored:result.stored,idempotent:result.idempotent,tokenId:polygon.tokenId,transactionHash:polygon.transactionHash,minted:false};
 }
