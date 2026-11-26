@@ -1,5 +1,6 @@
 import { timingSafeEqual } from 'node:crypto';
 import { runFirstBetaMint } from './nftBetaMintExecution.mjs';
+import { buildFirstBetaMetadata } from './nftBetaMetadataEndpoint.mjs';
 import { assemblePipeline1OwnershipReturn } from './pipeline1ConsolidatedReturn.mjs';
 import { pingPipeline2RegistrationDirectus } from './pipeline2RegistrationDirectusPing.mjs';
 import { pipeline2ConnectionEnabled, validatePipeline2Handshake } from './pipeline2Connection.mjs';
@@ -87,6 +88,17 @@ createServer(async (req, res) => {
   }
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
+    if (path === '/beta/block-radius-copy.json') {
+      if (req.method !== 'GET') { json(res,405,{error:'method_not_allowed'}); return; }
+      try {
+        const metadata=await buildFirstBetaMetadata();
+        json(res,200,metadata);
+      } catch(error) {
+        console.warn('AJINE_BETA_METADATA_UNAVAILABLE',String(error?.message||'UNKNOWN').slice(0,100));
+        json(res,503,{error:'beta_metadata_unavailable'});
+      }
+      return;
+    }
     if (path === '/api/nft/polygon/beta-mint') {
       if (req.method !== 'POST') { json(res,405,{ok:false,error:'method_not_allowed'}); return; }
       if (process.env.AJINE_BETA_MINT_ENDPOINT_ENABLED !== 'true' ||
