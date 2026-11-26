@@ -3,6 +3,7 @@ import {buildNftGatheringBoard} from './nftGatheringBoard.mjs';
 import {assemblePipeline1OwnershipReturn} from './pipeline1ConsolidatedReturn.mjs';
 import {executeInternalBetaMint} from './nftInternalBetaMint.mjs';
 import {readCommercialPreprintRegistration} from './nftCommercialPreprintEvidence.mjs';
+import {readVerifiedBetaMetadata} from './nftBetaMetadataReadback.mjs';
 export async function prepareInternalMintReturn({verifiedRegistration,purchase,ownership,rules,metadataUri,authorization,verifiedEvidence}={}) {
  if(verifiedRegistration?.verified!==true) throw Error('REGISTRATION_NOT_VERIFIED');
  const registration=verifiedRegistration.record;
@@ -17,10 +18,30 @@ export async function prepareInternalMintReturn({verifiedRegistration,purchase,o
     commercial.currency!==purchase?.currency||
     commercial.verified!==true)
    throw Error('PREPRINT_COMMERCIAL_REGISTRATION_MISMATCH');
+ // Retrieve immutable metadata from IPFS, independently of caller claims.
+ const metadata=await readVerifiedBetaMetadata({metadataUri,identity:{
+   registrationId:commercial.registrationId,albumId:commercial.albumId,
+   copyNumber:commercial.copyNumber
+ }});
  const board=buildNftGatheringBoard({verifiedRegistration});
+ // Until the rarity printers provide authoritative persisted assignments,
+ // never reuse caller-supplied evidence booleans to bypass mint admission.
+ const trustedEvidence=Object.freeze({
+   source:'trusted-server-readback',
+   registrationId:commercial.registrationId,albumId:commercial.albumId,copyNumber:commercial.copyNumber,
+   registrationVerified:commercial.registrationVerified,
+   paymentVerified:commercial.paymentRecordMatched,
+   ownershipVerified:commercial.ownershipVerified,
+   rarityPersisted:false,layerTwoPersisted:false,
+   metadataVerified:metadata.verified,
+   metadataUri:metadata.metadataUri,
+   metadataRegistrationId:metadata.registrationId,
+   metadataAlbumId:metadata.albumId,
+   metadataCopyNumber:metadata.copyNumber
+ });
  // Validate all return streams before any irreversible transaction.
  assemblePipeline1OwnershipReturn({registration,purchase,ownership,synthetic:true});
- const proof=await executeInternalBetaMint({board,rules,metadataUri,authorization,verifiedEvidence});
+ const proof=await executeInternalBetaMint({board,rules,metadataUri,authorization,verifiedEvidence:trustedEvidence});
  const returnedBoard=buildNftGatheringBoard({verifiedRegistration,verifiedPolygon:proof});
  const p=returnedBoard.groups.polygon;
  const polygon={verified:true,chainId:80002,contractAddress:p.contractAddress.value,tokenId:p.tokenId.value,transactionHash:p.mintTransactionHash.value,verifiedWallet:p.verifiedWallet.value};
