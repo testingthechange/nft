@@ -307,6 +307,29 @@ createServer(async (req, res) => {
       json(res, 200, { status: 'ok' });
       return;
     }
+    if (path === '/api/nft/polygon/landing-test') {
+      // Isolated synthetic mapping test. No RPC proof, mint, storage or release.
+      const record = {registration_id:'PING-REG-001',album_id:'ALBUM-BETA-PING',album_copy_number:'COPY-BETA-PING'};
+      const fixture = {verified:true,chainId:80002,registrationId:record.registration_id,
+        albumId:record.album_id,copyNumber:record.album_copy_number,
+        contractAddress:'0x'+'1'.repeat(40),verifiedWallet:'0x'+'2'.repeat(40),
+        transactionHash:'0x'+'3'.repeat(64),tokenId:'1'};
+      const registration = {verified:true,record};
+      const board = buildNftGatheringBoard({verifiedRegistration:registration,verifiedPolygon:fixture});
+      const expected = {network:'polygon-amoy',contractAddress:fixture.contractAddress,
+        tokenId:fixture.tokenId,mintTransactionHash:fixture.transactionHash,verifiedWallet:fixture.verifiedWallet};
+      const slots = Object.fromEntries(Object.entries(expected).map(([key,value])=>[key,
+        board.groups.polygon[key].status==='ready' && board.groups.polygon[key].value===value]));
+      const rejects = patch => {try {buildNftGatheringBoard({verifiedRegistration:registration,
+        verifiedPolygon:{...fixture,...patch}});return false;} catch {return true;}};
+      const guards = {wrongChain:rejects({chainId:137}),wrongCopy:rejects({copyNumber:'OTHER'}),
+        wrongAlbum:rejects({albumId:'OTHER'}),wrongRegistration:rejects({registrationId:'OTHER'}),
+        unverified:rejects({verified:false}),invalidHash:rejects({transactionHash:'invalid'})};
+      const passed = [...Object.values(slots),...Object.values(guards)].every(Boolean);
+      json(res,passed?200:503,{passed,fixtureOnly:true,slots,guards,polygonProofVerified:false,
+        minted:false,stored:false,delivered:false});
+      return;
+    }
     if (path === '/api/nft/return/ping') {
       // Contract-only synthetic return ping: no third-party delivery or page rendering.
       json(res, 200, pingMyCollectionReturn());
