@@ -96,12 +96,19 @@ createServer(async (req, res) => {
       const describe=(value,kind)=>{
         const v=typeof value==='string'?value:'';
         const expected=kind==='privateKey'?66:42;
+        const hex=/^[0-9a-fA-F]$/;
+        const prefix=v.slice(0,2)==='0x';
+        // Reveal only character categories and counts, never actual secret characters.
+        const invalidPositions=[...v].reduce((n,c,i)=>n+(i<2 ? (i===0?c!=='0':c!=='x') : !hex.test(c)?1:0),0);
         return {
           present:v.length>0,length:v.length,expectedLength:expected,
           leadingOrTrailingWhitespace:v!==v.trim(),
           whitespaceAnywhere:/\\s/.test(v),
+          leadingWhitespace:v.length>0 && v[0].trim()==='',
+          trailingWhitespace:v.length>0 && v[v.length-1].trim()==='',
           quoteWrapped:/^['"]|['"]$/.test(v),
-          hasHexPrefix:v.startsWith('0x'),
+          hasHexPrefix:prefix,
+          invalidCharacterCount:invalidPositions,
           validHexShape:kind==='privateKey'?/^0x[0-9a-fA-F]{64}$/.test(v):/^0x[0-9a-fA-F]{40}$/.test(v)
         };
       };
