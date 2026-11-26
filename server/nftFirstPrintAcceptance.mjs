@@ -1,3 +1,4 @@
+import {resolveBetaMetadataUrl} from './nftBetaMetadataUri.mjs';
 // First-print acceptance contract: fail closed before any irreversible Polygon call.
 // Evidence must be supplied by trusted server-side database readbacks, never browser flags.
 const required=(v)=>typeof v==='string'&&v.trim().length>0;
@@ -25,7 +26,8 @@ export function assertFirstPrintAcceptance({board,authorization,metadataUri,veri
    throw Error('FIRST_PRINT_RARITY_READBACK_MISMATCH');
  if(authorization?.registrationVerified!==true||authorization?.rarityVerified!==true||authorization?.layerTwoRarityVerified!==true)
    throw Error('FIRST_PRINT_AUTHORIZATION_HELD');
- if(!/^ipfs:\/\/[a-zA-Z0-9]+(?:\/[^\s]*)?$/.test(metadataUri??'')||
+ resolveBetaMetadataUrl(metadataUri);
+ if(
     verifiedEvidence.metadataVerified!==true||verifiedEvidence.metadataUri!==metadataUri||
     verifiedEvidence.metadataRegistrationId!==id.registrationId||
     verifiedEvidence.metadataAlbumId!==id.albumId||
