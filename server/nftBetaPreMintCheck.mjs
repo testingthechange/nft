@@ -28,7 +28,9 @@ export async function checkBlockRadiusPreMint({
       metadata?.albumId!=='ALBUM-BETA-share_475784'||
       !/^COPY-BETA-[1-9][0-9]*$/.test(metadata?.copyNumber??'')||
       typeof metadata.image!=='string'||!metadata.image.startsWith('https://')||
-      !metadata.name?.toLowerCase().includes('block radius'))
+      typeof metadata.albumTitle!=='string'||!metadata.albumTitle.trim()||
+      typeof metadata.artist!=='string'||!metadata.artist.trim()||
+      metadata.name!==metadata.albumTitle+' — Beta Album Copy')
       throw Error('BETA_METADATA_IDENTITY_INVALID');
     checks.registrationAndManifestVerified=true;
     identity={registrationId:'6',albumId:metadata.albumId,copyNumber:metadata.copyNumber};
@@ -40,7 +42,7 @@ export async function checkBlockRadiusPreMint({
     const msg=String(error?.message||'UNKNOWN');
     const allowed=['METADATA_HTTPS_NOT_ALLOWLISTED','BETA_MANIFEST_READ_TOKEN_REQUIRED',
       'BETA_REGISTRATION_NOT_VERIFIED','BETA_PUBLISHED_MANIFEST_NOT_FOUND',
-      'BETA_MANIFEST_ALBUM_TITLE_MISMATCH','BETA_MANIFEST_COVER_MISSING',
+      'BETA_MANIFEST_ALBUM_TITLE_MISMATCH','BETA_MANIFEST_ARTIST_MISSING','BETA_MANIFEST_COVER_MISSING',
       'BETA_MANIFEST_COVER_URL_INVALID','BETA_METADATA_IDENTITY_INVALID',
       'METADATA_COPY_IDENTITY_MISMATCH'];
     blockReason=allowed.includes(msg)?msg:'METADATA_OR_UPSTREAM_READ_UNAVAILABLE';
