@@ -40,11 +40,13 @@ export async function readVerifiedBlockRadiusManifest({fetcher=fetch,env=process
  const meta=object(album.meta);
  const name=[meta.albumTitle,album.title,object(nested.meta).albumTitle,nested.title,record.albumTitle,record.title]
    .find(x=>typeof x==='string'&&x.trim());
- if(typeof name!=='string'||name.trim().toLowerCase()!=='block radius')
+ if(typeof name!=='string'||!name.trim())
     throw Error('BETA_MANIFEST_ALBUM_TITLE_MISMATCH');
+ const artist=[meta.artistName,album.artist,object(nested.meta).artistName,nested.artist,record.artistName,record.artist].find(x=>typeof x==='string'&&x.trim());
+ if(!artist)throw Error('BETA_MANIFEST_ARTIST_MISSING');
  const cover=[album.coverUrl,nested.coverUrl,record.coverUrl,record.cover_url]
    .find(x=>typeof x==='string'&&x.trim());
- return Object.freeze({albumTitle:name.trim(),coverUrl:validCover(cover),shareId:SHARE_ID,
+ return Object.freeze({albumTitle:name.trim(),artist:artist.trim(),coverUrl:validCover(cover),shareId:SHARE_ID,
     manifestId:String(record.id??''),publishedAt:String(record.publishedAt??'')});
 }
 export async function buildFirstBetaMetadata({env=process.env,fetcher=fetch,readRegistration=readCommercialPreprintRegistration}={}){
@@ -58,6 +60,7 @@ export async function buildFirstBetaMetadata({env=process.env,fetcher=fetch,read
    name:manifest.albumTitle+' — Beta Album Copy',
    description:'AJINE Polygon Amoy testnet album copy. Development prototype; not a production NFT.',
    image:manifest.coverUrl,
+   albumTitle:manifest.albumTitle,artist:manifest.artist,
    registrationId:e.registrationId,albumId:e.albumId,copyNumber:e.copyNumber
  });
 }
