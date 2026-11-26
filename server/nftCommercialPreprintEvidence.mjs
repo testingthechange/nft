@@ -1,9 +1,18 @@
+import {readVerifiedBetaRegistration,readLatestVerifiedBetaRegistration} from './pipeline1BetaNftRegistrationEvidence.mjs';
 // Independent Registration evidence readback. The NFT service does not infer payment
 // from submitted JSON or accept untrusted caller verification flags.
 export async function readCommercialPreprintRegistration(registrationId,{fetcher=fetch,env=process.env}={}){
  const latest=registrationId===undefined||registrationId===null||registrationId==='';
  if(!latest&&!/^[1-9][0-9]*$/.test(String(registrationId??'')))
    throw Error('INVALID_PREPRINT_REGISTRATION_ID');
+ if(env.AJINE_DIRECTUS_PREPRINT_READ_ENABLED==='true'){
+   try {
+     return await (latest?readLatestVerifiedBetaRegistration({env}):readVerifiedBetaRegistration({registrationId,env}));
+   } catch(error) {
+     console.warn('AJINE_DIRECTUS_PREPRINT_FAILED',JSON.stringify({code:['REGISTRATION_NOT_FOUND','EXACT_COPY_OWNERSHIP_READBACK_FAILED','REGISTRATION_PAYMENT_RECORD_INVALID','DATABASE_IDENTITY_MISMATCH'].includes(error?.message)?error.message:'READBACK_UNAVAILABLE'}));
+     throw Error('PREPRINT_REGISTRATION_READBACK_FAILED');
+   }
+ }
  const token=env.AJINE_PIPELINE1_RETURN_TOKEN;
  if(!token||token.length<32)throw Error('PREPRINT_EVIDENCE_TOKEN_UNAVAILABLE');
  let response;
