@@ -6,11 +6,17 @@ export async function readCommercialPreprintRegistration(registrationId,{fetcher
    throw Error('INVALID_PREPRINT_REGISTRATION_ID');
  const token=env.AJINE_PIPELINE1_RETURN_TOKEN;
  if(!token||token.length<32)throw Error('PREPRINT_EVIDENCE_TOKEN_UNAVAILABLE');
- const response=await fetcher('https://stripe-beta.onrender.com/api/registration/pipeline1/nft-preprint-evidence',{
+ let response;
+ for(let attempt=0;attempt<2;attempt++){
+   response=await fetcher('https://stripe-beta.onrender.com/api/registration/pipeline1/nft-preprint-evidence',{
   method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
   body:JSON.stringify(latest?{lookup:'latest_verified_beta'}:{registrationId:String(registrationId)}),
-  signal:AbortSignal.timeout(10000),redirect:'error'
+  signal:AbortSignal.timeout(90000),redirect:'error'
  });
+   if(![502,503,504].includes(response.status)||attempt===1)break;
+   console.warn('AJINE_PREPRINT_READBACK_RETRY',JSON.stringify({status:response.status}));
+   await response.body?.cancel();
+ }
  if(!response.ok){
    console.warn('AJINE_PREPRINT_READBACK_HTTP',JSON.stringify({status:response.status}));
    throw Error('PREPRINT_REGISTRATION_READBACK_FAILED');
