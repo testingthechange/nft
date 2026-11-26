@@ -2,9 +2,21 @@
 import {buildNftGatheringBoard} from './nftGatheringBoard.mjs';
 import {assemblePipeline1OwnershipReturn} from './pipeline1ConsolidatedReturn.mjs';
 import {executeInternalBetaMint} from './nftInternalBetaMint.mjs';
+import {readCommercialPreprintRegistration} from './nftCommercialPreprintEvidence.mjs';
 export async function prepareInternalMintReturn({verifiedRegistration,purchase,ownership,rules,metadataUri,authorization,verifiedEvidence}={}) {
  if(verifiedRegistration?.verified!==true) throw Error('REGISTRATION_NOT_VERIFIED');
  const registration=verifiedRegistration.record;
+ // Independent commercial DB check occurs before any mint call.
+ const commercial=await readCommercialPreprintRegistration(registration.registration_id);
+ if(commercial.albumId!==registration.album_id||
+    commercial.copyNumber!==registration.album_copy_number||
+    commercial.registeredOwnerId!==registration.registered_owner_id||
+    commercial.purchaseTransactionId!==registration.purchase_transaction_id||
+    commercial.orderNumber!==purchase?.orderNumber||
+    commercial.pricePaidCents!==purchase?.pricePaidCents||
+    commercial.currency!==purchase?.currency||
+    commercial.verified!==true)
+   throw Error('PREPRINT_COMMERCIAL_REGISTRATION_MISMATCH');
  const board=buildNftGatheringBoard({verifiedRegistration});
  // Validate all return streams before any irreversible transaction.
  assemblePipeline1OwnershipReturn({registration,purchase,ownership,synthetic:true});
