@@ -90,29 +90,44 @@ createServer(async (req, res) => {
       if (!authorized(req)) { json(res,401,{error:'unauthorized'}); return; }
       const {JsonRpcProvider,Wallet,Contract,getAddress,ZeroAddress}=await import('ethers');
       const env=process.env;
-      const checks={rpc:!!env.POLYGON_AMOY_RPC_URL,signer:!!env.AJINE_AMOY_MINT_PRIVATE_KEY,contract:!!env.AJINE_AMOY_NFT_CONTRACT,custody:!!env.AJINE_AMOY_CUSTODY_ADDRESS,chain:false,contractDeployed:false,signerOwnsContract:false,signerFunded:false};
+      const checks={rpc:!!env.POLYGON_AMOY_RPC_URL,signer:!!env.AJINE_AMOY_MINT_PRIVATE_KEY,contract:!!env.AJINE_AMOY_NFT_CONTRACT,custody:!!env.AJINE_AMOY_CUSTODY_ADDRESS,
+        chain:false,contractDeployed:false,signerOwnsContract:false,signerFunded:false,signerMatchesCustody:false};
+      const failures={};
+      const probe=async(name,fn)=>{
+        try{checks[name]=await fn()===true;if(!checks[name])failures[name]='CHECK_FALSE';}
+        catch(error){
+          checks[name]=false;
+          // Only return safe error category; do not expose RPC URLs, addresses, or credentials.
+          const allowed=['TIMEOUT','SERVER_ERROR','NETWORK_ERROR','INVALID_ARGUMENT','CALL_EXCEPTION','BAD_DATA','UNKNOWN_ERROR'];
+          failures[name]=allowed.includes(error?.code)?error.code:'RPC_OR_VALIDATION_ERROR';
+        }
+      };
       let provider;
-      try {
+      try{
         if(checks.rpc){
-          provider=new JsonRpcProvider(env.POLYGON_AMOY_RPC_URL);
-          checks.chain=(await provider.getNetwork()).chainId===80002n;
-          if(checks.chain&&checks.contract&&checks.custody&&checks.signer){
-            const address=getAddress(env.AJINE_AMOY_NFT_CONTRACT);
-            const custody=getAddress(env.AJINE_AMOY_CUSTODY_ADDRESS);
-            const signer=new Wallet(env.AJINE_AMOY_MINT_PRIVATE_KEY,provider);
-            checks.custody=custody!==ZeroAddress;
-            checks.contractDeployed=address!==ZeroAddress&&await provider.getCode(address)!=='0x';
-            checks.signerFunded=(await provider.getBalance(signer.address))>0n;
-            if(checks.contractDeployed){
-              const contract=new Contract(address,['function owner() view returns (address)'],provider);
-              checks.signerOwnsContract=getAddress(await contract.owner())===signer.address;
+          provider=new JsonRpcProvider(env.POLYGON_AMOY_RPC_URL,{name:'polygon-amoy',chainId:80002},{staticNetwork:true});
+          await probe('chain',async()=>BigInt(await provider.send('eth_chainId',[]))===80002n);
+          if(checks.chain){
+            let signer=null,contractAddress=null,custodyAddress=null;
+            if(checks.signer){try{signer=new Wallet(env.AJINE_AMOY_MINT_PRIVATE_KEY,provider);}catch{failures.signer='INVALID_SIGNER_KEY';}}
+            if(checks.contract){try{contractAddress=getAddress(env.AJINE_AMOY_NFT_CONTRACT);}catch{failures.contract='INVALID_CONTRACT_ADDRESS';}}
+            if(checks.custody){try{custodyAddress=getAddress(env.AJINE_AMOY_CUSTODY_ADDRESS);}catch{failures.custody='INVALID_CUSTODY_ADDRESS';}}
+            if(signer&&custodyAddress)await probe('signerMatchesCustody',async()=>signer.address===custodyAddress && custodyAddress!==ZeroAddress);
+            if(signer)await probe('signerFunded',async()=>(await provider.getBalance(signer.address))>0n);
+            if(contractAddress){
+              await probe('contractDeployed',async()=>contractAddress!==ZeroAddress&&(await provider.getCode(contractAddress))!=='0x');
+              if(checks.contractDeployed&&signer){
+                await probe('signerOwnsContract',async()=>{
+                  const contract=new Contract(contractAddress,['function owner() view returns (address)'],provider);
+                  return getAddress(await contract.owner())===signer.address;
+                });
+              }else failures.signerOwnsContract='DEPENDENCY_NOT_READY';
             }
           }
         }
-      }catch{ /* Fail closed; never expose RPC URL or private key. */ }
-      finally{provider?.destroy();}
+      }finally{provider?.destroy();}
       const passed=Object.values(checks).every(Boolean);
-      json(res,passed?200:503,{passed,checks,mintEnabled:env.AJINE_AMOY_MINT_ENABLED==='true',minted:false,stored:false});
+      json(res,passed?200:503,{passed,checks,failures,mintEnabled:env.AJINE_AMOY_MINT_ENABLED==='true',minted:false,stored:false});
       return;
     }
     if (path === '/api/pipeline2/directus/ping') {
