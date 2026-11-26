@@ -92,6 +92,24 @@ createServer(async (req, res) => {
       const env=process.env;
       const checks={rpc:!!env.POLYGON_AMOY_RPC_URL,signer:!!env.AJINE_AMOY_MINT_PRIVATE_KEY,contract:!!env.AJINE_AMOY_NFT_CONTRACT,custody:!!env.AJINE_AMOY_CUSTODY_ADDRESS,
         chain:false,contractDeployed:false,signerOwnsContract:false,signerFunded:false,signerMatchesCustody:false};
+      // Safe Render-value diagnostics: shape only; never return secret contents or fragments.
+      const describe=(value,kind)=>{
+        const v=typeof value==='string'?value:'';
+        const expected=kind==='privateKey'?66:42;
+        return {
+          present:v.length>0,length:v.length,expectedLength:expected,
+          leadingOrTrailingWhitespace:v!==v.trim(),
+          whitespaceAnywhere:/\\s/.test(v),
+          quoteWrapped:/^['"]|['"]$/.test(v),
+          hasHexPrefix:v.startsWith('0x'),
+          validHexShape:kind==='privateKey'?/^0x[0-9a-fA-F]{64}$/.test(v):/^0x[0-9a-fA-F]{40}$/.test(v)
+        };
+      };
+      const environmentFormat={
+        mintPrivateKey:describe(env.AJINE_AMOY_MINT_PRIVATE_KEY,'privateKey'),
+        custodyAddress:describe(env.AJINE_AMOY_CUSTODY_ADDRESS,'address'),
+        contractAddress:describe(env.AJINE_AMOY_NFT_CONTRACT,'address')
+      };
       const failures={};
       const probe=async(name,fn)=>{
         try{checks[name]=await fn()===true;if(!checks[name])failures[name]='CHECK_FALSE';}
@@ -127,7 +145,7 @@ createServer(async (req, res) => {
         }
       }finally{provider?.destroy();}
       const passed=Object.values(checks).every(Boolean);
-      json(res,passed?200:503,{passed,checks,failures,mintEnabled:env.AJINE_AMOY_MINT_ENABLED==='true',minted:false,stored:false});
+      json(res,passed?200:503,{passed,checks,failures,environmentFormat,mintEnabled:env.AJINE_AMOY_MINT_ENABLED==='true',minted:false,stored:false});
       return;
     }
     if (path === '/api/pipeline2/directus/ping') {
