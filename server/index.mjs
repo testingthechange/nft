@@ -1,6 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import { runFirstBetaMint } from './nftBetaMintExecution.mjs';
 import { buildFirstBetaMetadata } from './nftBetaMetadataEndpoint.mjs';
+import { checkBlockRadiusPreMint } from './nftBetaPreMintCheck.mjs';
 import { assemblePipeline1OwnershipReturn } from './pipeline1ConsolidatedReturn.mjs';
 import { pingPipeline2RegistrationDirectus } from './pipeline2RegistrationDirectusPing.mjs';
 import { pipeline2ConnectionEnabled, validatePipeline2Handshake } from './pipeline2Connection.mjs';
@@ -96,6 +97,17 @@ createServer(async (req, res) => {
       } catch(error) {
         console.warn('AJINE_BETA_METADATA_UNAVAILABLE',String(error?.message||'UNKNOWN').slice(0,100));
         json(res,503,{error:'beta_metadata_unavailable'});
+      }
+      return;
+    }
+    if (path === '/api/nft/polygon/beta-mint-preflight') {
+      if(req.method!=='POST'){json(res,405,{ok:false,error:'method_not_allowed'});return;}
+      if(!authorized(req)){json(res,401,{ok:false,error:'unauthorized'});return;}
+      try{
+        const report=await checkBlockRadiusPreMint();
+        json(res,200,{ok:true,...report});
+      }catch{
+        json(res,503,{ok:false,error:'beta_preflight_unavailable',mintAuthorized:false});
       }
       return;
     }
