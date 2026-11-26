@@ -342,7 +342,7 @@ createServer(async (req, res) => {
       const board=buildNftGatheringBoard({verifiedRegistration:{verified:true,record:registration},verifiedPolygon:fixture});
       const p=board.groups.polygon;
       const polygon={verified:Object.values(p).every(s=>s.status==='ready'),chainId:80002,
-        contractAddress:p.contractAddress.value,tokenId:p.tokenId.value,transactionHash:p.mintTransactionHash.value};
+        contractAddress:p.contractAddress.value,tokenId:p.tokenId.value,transactionHash:p.mintTransactionHash.value,verifiedWallet:p.verifiedWallet.value};
       const packet=assemblePipeline1OwnershipReturn({registration,
         purchase:{transactionId:registration.purchase_transaction_id,albumId:registration.album_id,
           orderNumber:'FIXTURE-ORDER',pricePaidCents:999,currency:'USD'},
@@ -354,9 +354,21 @@ createServer(async (req, res) => {
         network:packet.nft.network===p.network.value,contractAddress:packet.nft.contractAddress===p.contractAddress.value,
         tokenId:packet.nft.tokenId===p.tokenId.value,transactionHash:packet.nft.transactionHash===p.mintTransactionHash.value,
         releaseHeld:packet.releaseAuthorized===false && packet.status==='hold' && packet.nft.ownershipConfirmed===false};
+      checks.verifiedWallet=packet.nft.verifiedWallet===p.verifiedWallet.value;
       const passed=Object.values(checks).every(Boolean);
-      json(res,passed?200:503,{passed,fixtureOnly:true,checks,verifiedWalletForwarded:false,
-        registrationReceiverContacted:false,stored:false,delivered:false});
+      const token=process.env.AJINE_PIPELINE1_RETURN_TOKEN;
+      if (!passed || !token || token.length<32 || process.env.AJINE_PIPELINE1_RETURN_ENABLED!=='true') {
+        json(res,503,{passed:false,fixtureOnly:true,checks,reason:'mapping_or_return_configuration',stored:false,delivered:false});return;
+      }
+      const response=await fetch('https://stripe-beta.onrender.com/api/registration/pipeline1/return',{
+        method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body:JSON.stringify({originalRegistration:registration,returnPackage:packet}),signal:AbortSignal.timeout(10000)});
+      const receipt=await response.json().catch(()=>null);
+      const landed=response.ok && receipt?.received===true && receipt?.validated===true &&
+        receipt?.registrationMatched===true && receipt?.stored===false && receipt?.delivered===false &&
+        receipt?.nftFieldsReceived===true;
+      json(res,landed?200:503,{passed:landed,fixtureOnly:true,checks,verifiedWalletForwarded:checks.verifiedWallet,
+        registrationReceiverContacted:true,registrationReceiverConfirmed:landed,upstreamStatus:response.status,stored:false,delivered:false});
       return;
     }
     if (path === '/api/nft/return/ping') {
