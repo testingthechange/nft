@@ -1,7 +1,7 @@
 // Read-only NFT metadata based on the CURRENT published Directus manifest.
 // No operator-provided artwork copy and no metadata mutation.
 import {readCommercialPreprintRegistration} from './nftCommercialPreprintEvidence.mjs';
-const DIRECTUS='https://directus-otul.onrender.com';
+const PUBLISHED='https://smartb5ajine.onrender.com/api/manifests/';
 const SHARE_ID='share_475784';
 function object(v){
  if(v&&typeof v==='object'&&!Array.isArray(v))return v;
@@ -19,22 +19,15 @@ function validCover(raw){
  return u.href;
 }
 export async function readVerifiedBlockRadiusManifest({fetcher=fetch,env=process.env}={}){
- const token=env.AJINE_COMMERCIAL_DIRECTUS_READ_TOKEN;
- if(typeof token!=='string'||token.length<16)throw Error('BETA_MANIFEST_READ_TOKEN_REQUIRED');
- const filter='?filter[_or][0][share_id][_eq]='+encodeURIComponent(SHARE_ID)+
-  '&filter[_or][1][shareId][_eq]='+encodeURIComponent(SHARE_ID)+'&limit=50&fields=*';
- const response=await fetcher(DIRECTUS+'/items/player_manifests'+filter,{
-  method:'GET',redirect:'error',headers:{Authorization:'Bearer '+token,Accept:'application/json'},
-  signal:AbortSignal.timeout(9000)
+ const response=await fetcher(PUBLISHED+encodeURIComponent(SHARE_ID),{
+  method:'GET',redirect:'error',headers:{Accept:'application/json'},
+  signal:AbortSignal.timeout(15000)
  });
- if(!response.ok)throw Error('BETA_DIRECTUS_MANIFEST_HTTP_'+response.status);
- const records=(await response.json())?.data;
- if(!Array.isArray(records))throw Error('BETA_MANIFEST_RESPONSE_INVALID');
- const candidates=records.filter(r=>r?.share_id===SHARE_ID||r?.shareId===SHARE_ID)
-    .filter(r=>tracks(r.tracks).length>0)
-    .sort((a,b)=>(Date.parse(b.publishedAt)||0)-(Date.parse(a.publishedAt)||0));
- if(!candidates.length)throw Error('BETA_PUBLISHED_MANIFEST_NOT_FOUND');
- const record=candidates[0];
+ if(!response.ok)throw Error('BETA_PUBLISHED_MANIFEST_HTTP_'+response.status);
+ const payload=await response.json();
+ const record=object(payload?.data?.shareId?payload.data:payload);
+ if(record.shareId!==SHARE_ID||!tracks(record.tracks).length||!record.publishId||!record.publishedAt)
+   throw Error('BETA_PUBLISHED_MANIFEST_NOT_FOUND');
  const album=object(record.album);
  const nested=object(object(record.manifest_json||record.manifestJson||record.manifest).album);
  const meta=object(album.meta);
@@ -44,7 +37,7 @@ export async function readVerifiedBlockRadiusManifest({fetcher=fetch,env=process
     throw Error('BETA_MANIFEST_ALBUM_TITLE_MISMATCH');
  const artist=[meta.artistName,album.artist,object(nested.meta).artistName,nested.artist,record.artistName,record.artist].find(x=>typeof x==='string'&&x.trim());
  if(!artist)throw Error('BETA_MANIFEST_ARTIST_MISSING');
- const cover=[album.coverUrl,nested.coverUrl,record.coverUrl,record.cover_url]
+ const cover=[album.coverUrl,nested.coverUrl,record.coverUrl,record.cover_url,object(album.cover).previewUrl,object(nested.cover).previewUrl]
    .find(x=>typeof x==='string'&&x.trim());
  return Object.freeze({albumTitle:name.trim(),artist:artist.trim(),coverUrl:validCover(cover),shareId:SHARE_ID,
     manifestId:String(record.id??''),publishedAt:String(record.publishedAt??'')});
