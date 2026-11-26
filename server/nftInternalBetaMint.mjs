@@ -1,5 +1,6 @@
 // Internal Amoy mint executor. No HTTP route, no customer wallet, disabled by default.
 import { Contract, JsonRpcProvider, Wallet, getAddress, ZeroAddress, AbiCoder, keccak256 } from 'ethers';
+import {resolveBetaMetadataUrl} from './nftBetaMetadataUri.mjs';
 import { assembleFromGatheringBoard } from './nftAssemblyAdapter.mjs';
 import { assertFirstPrintAcceptance } from './nftFirstPrintAcceptance.mjs';
 const abi=[
@@ -19,7 +20,7 @@ export async function executeInternalBetaMint({board,rules,metadataUri,authoriza
  authorization?.registrationId!==frame.registrationId||authorization?.albumId!==frame.albumId||
  authorization?.copyNumber!==frame.copyNumber) throw Error('MINT_NOT_AUTHORIZED');
  if(!frame.albumId.startsWith('ALBUM-BETA-')||!frame.copyNumber.startsWith('COPY-BETA-')) throw Error('BETA_IDENTITY_REQUIRED');
- if(typeof metadataUri!=='string'||!/^ipfs:\/\/[a-zA-Z0-9]+(?:\/[^\s]*)?$/.test(metadataUri)) throw Error('IPFS_METADATA_REQUIRED');
+ resolveBetaMetadataUrl(metadataUri);
  const rpc=process.env.POLYGON_AMOY_RPC_URL;
  if(!rpc) throw Error('RPC_REQUIRED');
  const provider=new JsonRpcProvider(rpc);
