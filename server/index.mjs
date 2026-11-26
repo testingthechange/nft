@@ -6,6 +6,7 @@ import { inspectCharacterLibrary } from './inspectCharacterLibrary.mjs';
 import { inspectLayerTwoLiveConnection } from './inspectLayerTwoLiveConnection.mjs';
 import { inspectCommercialDirectusConnection } from './commercialDirectusConnection.mjs';
 import { inspectCommercialRegistrationEvidence } from './commercialRegistrationEvidence.mjs';
+import { readCommercialPreprintRegistration } from './nftCommercialPreprintEvidence.mjs';
 import { previewRegistration } from './registrationPreview.mjs';
 import { MOCK_JSON_PATH, inspectMockJson } from './mockRegistrationJson.mjs';
 import { buildNftGatheringBoard } from './nftGatheringBoard.mjs';
@@ -85,6 +86,35 @@ createServer(async (req, res) => {
   }
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
+    if (path === '/api/nft/preprint/registration-check') {
+      // Read-only, private check. Returns booleans only; does not return owner or payment details.
+      if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
+      if (process.env.AJINE_NFT_PREPRINT_REGISTRATION_CHECK_ENABLED !== 'true') {
+        json(res,503,{passed:false,error:'preprint_registration_check_disabled',minted:false}); return;
+      }
+      if (!authorized(req)) { json(res,401,{error:'unauthorized'}); return; }
+      let body;
+      try { body=await readJson(req); }
+      catch(error){ json(res,error.http||400,{error:error.message}); return; }
+      try {
+        const evidence=await readCommercialPreprintRegistration(body?.registrationId);
+        const valid=evidence.registrationVerified===true&&
+          evidence.paymentRecordMatched===true&&evidence.ownershipVerified===true;
+        json(res,valid?200:422,{passed:valid,
+          checks:{registration:valid,paymentRecord:valid,exactOwnershipCopy:valid},
+          rarityVerified:false,metadataVerified:false,mintAuthorized:false,minted:false});
+      }catch(error){
+        const messages={
+          INVALID_PREPRINT_REGISTRATION_ID:'invalid_registration_id',
+          PREPRINT_EVIDENCE_TOKEN_UNAVAILABLE:'registration_service_token_missing',
+          PREPRINT_REGISTRATION_READBACK_FAILED:'registration_readback_unavailable',
+          PREPRINT_REGISTRATION_EVIDENCE_INVALID:'registration_evidence_mismatch'
+        };
+        json(res,422,{passed:false,error:messages[error?.message]||'registration_evidence_unavailable',
+          mintAuthorized:false,minted:false});
+      }
+      return;
+    }
     if (path === '/api/nft/polygon/mint-preflight') {
       if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
       if (!authorized(req)) { json(res,401,{error:'unauthorized'}); return; }
