@@ -15,6 +15,7 @@ export function buildMyCollectionReturn({registrationId,albumId,copyNumber,rarit
       contractAddress:verified?polygon.contractAddress:null,
       tokenId:verified?polygon.tokenId:null,
       transactionHash:verified?polygon.transactionHash:null,
+      verifiedWallet:verified && /^0x[0-9a-fA-F]{40}$/.test(polygon.verifiedWallet ?? '') ? polygon.verifiedWallet : null,
       verificationStatus:verified&&!synthetic?'verified':'pending',
       ownershipConfirmed:verified&&!synthetic},
     fixtureOnly:synthetic,deliveryStatus:'not_sent',stored:false,minted:false
