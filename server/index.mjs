@@ -85,6 +85,36 @@ createServer(async (req, res) => {
   }
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
+    if (path === '/api/nft/polygon/mint-preflight') {
+      if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
+      if (!authorized(req)) { json(res,401,{error:'unauthorized'}); return; }
+      const {JsonRpcProvider,Wallet,Contract,getAddress,ZeroAddress}=await import('ethers');
+      const env=process.env;
+      const checks={rpc:!!env.POLYGON_AMOY_RPC_URL,signer:!!env.AJINE_AMOY_MINT_PRIVATE_KEY,contract:!!env.AJINE_AMOY_NFT_CONTRACT,custody:!!env.AJINE_AMOY_CUSTODY_ADDRESS,chain:false,contractDeployed:false,signerOwnsContract:false,signerFunded:false};
+      let provider;
+      try {
+        if(checks.rpc){
+          provider=new JsonRpcProvider(env.POLYGON_AMOY_RPC_URL);
+          checks.chain=(await provider.getNetwork()).chainId===80002n;
+          if(checks.chain&&checks.contract&&checks.custody&&checks.signer){
+            const address=getAddress(env.AJINE_AMOY_NFT_CONTRACT);
+            const custody=getAddress(env.AJINE_AMOY_CUSTODY_ADDRESS);
+            const signer=new Wallet(env.AJINE_AMOY_MINT_PRIVATE_KEY,provider);
+            checks.custody=custody!==ZeroAddress;
+            checks.contractDeployed=address!==ZeroAddress&&await provider.getCode(address)!=='0x';
+            checks.signerFunded=(await provider.getBalance(signer.address))>0n;
+            if(checks.contractDeployed){
+              const contract=new Contract(address,['function owner() view returns (address)'],provider);
+              checks.signerOwnsContract=getAddress(await contract.owner())===signer.address;
+            }
+          }
+        }
+      }catch{ /* Fail closed; never expose RPC URL or private key. */ }
+      finally{provider?.destroy();}
+      const passed=Object.values(checks).every(Boolean);
+      json(res,passed?200:503,{passed,checks,mintEnabled:env.AJINE_AMOY_MINT_ENABLED==='true',minted:false,stored:false});
+      return;
+    }
     if (path === '/api/pipeline2/directus/ping') {
       if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
       if (!pipeline2ConnectionEnabled()) { json(res,503,{error:'connection_disabled'}); return; }
