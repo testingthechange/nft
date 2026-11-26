@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { runFirstBetaMint } from './nftBetaMintExecution.mjs';
+import { runFirstBetaMint, recoverFirstBetaReturn } from './nftBetaMintExecution.mjs';
 import { buildFirstBetaMetadata } from './nftBetaMetadataEndpoint.mjs';
 import { checkBlockRadiusPreMint } from './nftBetaPreMintCheck.mjs';
 import { assemblePipeline1OwnershipReturn } from './pipeline1ConsolidatedReturn.mjs';
@@ -109,6 +109,17 @@ createServer(async (req, res) => {
       }catch{
         json(res,503,{ok:false,error:'beta_preflight_unavailable',mintAuthorized:false});
       }
+      return;
+    }
+    if (path === '/api/nft/polygon/beta-recover') {
+      if(req.method!=='POST'){json(res,405,{ok:false,error:'method_not_allowed'});return;}
+      const token=process.env.AJINE_BETA_MINT_OPERATOR_TOKEN;
+      const header=String(req.headers.authorization||'');
+      const supplied=Buffer.from(header.startsWith('Bearer ')?header.slice(7):'');
+      const expected=Buffer.from(token||'');
+      if(!token||token.length<32||supplied.length!==expected.length||!timingSafeEqual(supplied,expected)){json(res,401,{ok:false,error:'unauthorized'});return;}
+      try{const result=await recoverFirstBetaReturn();json(res,200,{ok:true,...result});}
+      catch(error){console.error('AJINE_BETA_RECOVERY_FAILED',String(error?.message||'UNKNOWN').slice(0,100));json(res,422,{ok:false,error:'recovery_failed',minted:false,stored:false});}
       return;
     }
     if (path === '/api/nft/polygon/beta-mint') {
