@@ -14,6 +14,24 @@ export function assertFirstPrintAcceptance({board,authorization,metadataUri,veri
    if(verifiedEvidence[key]!==id[key]||authorization?.[key]!==id[key])
      throw Error('FIRST_PRINT_IDENTITY_MISMATCH');
  }
+ // The first core beta NFT has no mystery-card inventory. This exception is
+ // limited to Registration #6 with an exact trusted copy, and cannot claim rarity.
+ const betaCoreOnly=authorization?.betaCoreOnly===true&&
+   id.registrationId==='6'&&/^ALBUM-BETA-/.test(id.albumId)&&
+   /^COPY-BETA-/.test(id.copyNumber)&&
+   authorization?.registrationVerified===true&&
+   authorization?.rarityVerified===false&&authorization?.layerTwoRarityVerified===false&&
+   verifiedEvidence.rarityPersisted===false&&verifiedEvidence.layerTwoPersisted===false;
+ if(betaCoreOnly){
+   resolveBetaMetadataUrl(metadataUri);
+   if(verifiedEvidence.metadataVerified!==true||
+      verifiedEvidence.metadataUri!==metadataUri||
+      verifiedEvidence.metadataRegistrationId!==id.registrationId||
+      verifiedEvidence.metadataAlbumId!==id.albumId||
+      verifiedEvidence.metadataCopyNumber!==id.copyNumber)
+     throw Error('FIRST_PRINT_METADATA_READBACK_REQUIRED');
+   return true;
+ }
  const rarity=board.groups?.albumRarity;
  if(!fields.every(k=>rarity?.[k]?.status==='ready'&&rarity[k].value!=null))
    throw Error('FIRST_PRINT_ALBUM_RARITY_NOT_FINALIZED');
