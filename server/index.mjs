@@ -330,6 +330,35 @@ createServer(async (req, res) => {
         minted:false,stored:false,delivered:false});
       return;
     }
+    if (path === '/api/nft/registration/landing-test') {
+      // Synthetic board-to-registration mapping only; never authorize release.
+      const registration={registration_id:'PING-REG-001',album_id:'ALBUM-BETA-PING',
+        album_copy_number:'COPY-BETA-PING',registered_owner_id:'FIXTURE-OWNER',
+        purchase_transaction_id:'FIXTURE-TX',registration_date:'2026-01-01T00:00:00Z'};
+      const fixture={verified:true,chainId:80002,registrationId:registration.registration_id,
+        albumId:registration.album_id,copyNumber:registration.album_copy_number,
+        contractAddress:'0x'+'1'.repeat(40),verifiedWallet:'0x'+'2'.repeat(40),
+        transactionHash:'0x'+'3'.repeat(64),tokenId:'1'};
+      const board=buildNftGatheringBoard({verifiedRegistration:{verified:true,record:registration},verifiedPolygon:fixture});
+      const p=board.groups.polygon;
+      const polygon={verified:Object.values(p).every(s=>s.status==='ready'),chainId:80002,
+        contractAddress:p.contractAddress.value,tokenId:p.tokenId.value,transactionHash:p.mintTransactionHash.value};
+      const packet=assemblePipeline1OwnershipReturn({registration,
+        purchase:{transactionId:registration.purchase_transaction_id,albumId:registration.album_id,
+          orderNumber:'FIXTURE-ORDER',pricePaidCents:999,currency:'USD'},
+        ownership:{registrationId:board.identity.registrationId,albumId:board.identity.albumId,
+          copyNumber:board.identity.copyNumber,ownerId:registration.registered_owner_id,ownershipKey:'FIXTURE-KEY'},
+        polygon,synthetic:true,registrationAuthorized:false,polygonProofVerified:false});
+      const checks={destination:packet.destination==='thirdparty.registration.board.nftReturn',
+        identity:packet.identity.registrationId===registration.registration_id && packet.identity.albumId===registration.album_id && packet.identity.copyNumber===registration.album_copy_number,
+        network:packet.nft.network===p.network.value,contractAddress:packet.nft.contractAddress===p.contractAddress.value,
+        tokenId:packet.nft.tokenId===p.tokenId.value,transactionHash:packet.nft.transactionHash===p.mintTransactionHash.value,
+        releaseHeld:packet.releaseAuthorized===false && packet.status==='hold' && packet.nft.ownershipConfirmed===false};
+      const passed=Object.values(checks).every(Boolean);
+      json(res,passed?200:503,{passed,fixtureOnly:true,checks,verifiedWalletForwarded:false,
+        registrationReceiverContacted:false,stored:false,delivered:false});
+      return;
+    }
     if (path === '/api/nft/return/ping') {
       // Contract-only synthetic return ping: no third-party delivery or page rendering.
       json(res, 200, pingMyCollectionReturn());
