@@ -1,6 +1,7 @@
 // Internal Amoy mint executor. No HTTP route, no customer wallet, disabled by default.
 import { Contract, JsonRpcProvider, Wallet, getAddress, ZeroAddress, AbiCoder, keccak256 } from 'ethers';
 import { assembleFromGatheringBoard } from './nftAssemblyAdapter.mjs';
+import { assertFirstPrintAcceptance } from './nftFirstPrintAcceptance.mjs';
 const abi=[
  'function owner() view returns (address)',
  'function tokenIdForCopy(string,string) view returns (uint256)',
@@ -9,8 +10,9 @@ const abi=[
  'function mintBetaCopy(address,string,string,string) returns (uint256)',
  'event BetaAlbumCopyMinted(bytes32 indexed copyKey,uint256 indexed tokenId,address indexed recipient)'
 ];
-export async function executeInternalBetaMint({board,rules,metadataUri,authorization}={}) {
+export async function executeInternalBetaMint({board,rules,metadataUri,authorization,verifiedEvidence}={}) {
  if(process.env.AJINE_AMOY_MINT_ENABLED!=='true') throw Error('MINT_DISABLED');
+ assertFirstPrintAcceptance({board,authorization,metadataUri,verifiedEvidence});
  const frame=assembleFromGatheringBoard(board,rules);
  if(frame.decision!=='eligible'||authorization?.registrationVerified!==true||
  authorization?.rarityVerified!==true||authorization?.layerTwoRarityVerified!==true||
@@ -31,8 +33,16 @@ export async function executeInternalBetaMint({board,rules,metadataUri,authoriza
  if(getAddress(await contract.owner())!==signer.address) throw Error('SIGNER_NOT_CONTRACT_OWNER');
  if(await contract.tokenIdForCopy(frame.albumId,frame.copyNumber)!==0n) throw Error('COPY_ALREADY_MINTED_RECONCILE');
  const key=keccak256(AbiCoder.defaultAbiCoder().encode(['string','string'],[frame.albumId,frame.copyNumber]));
+ // The transaction hash must be retained by the trusted caller for recovery.
+ // Never send another mint after an uncertain broadcast without reconciling tokenIdForCopy.
  const tx=await contract.mintBetaCopy(custody,frame.albumId,frame.copyNumber,metadataUri);
- const receipt=await tx.wait(2);
+ console.info('AJINE_BETA_MINT_SUBMITTED',JSON.stringify({transactionHash:tx.hash,albumId:frame.albumId,copyNumber:frame.copyNumber}));
+ let receipt;
+ try {receipt=await tx.wait(2);}
+ catch(error){
+   console.error('AJINE_BETA_MINT_CONFIRMATION_UNCERTAIN',JSON.stringify({transactionHash:tx.hash,code:String(error?.code??'UNKNOWN')}));
+   throw Error('MINT_CONFIRMATION_UNCERTAIN_RECONCILE_'+tx.hash);
+ }
  if(!receipt||receipt.status!==1) throw Error('MINT_RECEIPT_FAILED');
  const events=receipt.logs.filter(log=>getAddress(log.address)===address).map(log=>{try{return contract.interface.parseLog(log);}catch{return null;}}).filter(event=>event?.name==='BetaAlbumCopyMinted');
  if(events.length!==1) throw Error('MINT_EVENT_MISMATCH');
