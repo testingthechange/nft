@@ -25,7 +25,7 @@ export const NFT_GATHERING_BOARD_GROUPS = Object.freeze([
   "albumArtwork", "albumCoverStamps", "returnToThirdParty", "futureBurnJingleCards",
 ]);
 
-export function buildNftGatheringBoard({ verifiedRegistration = null, mockRegistration = null } = {}) {
+export function buildNftGatheringBoard({ verifiedRegistration = null, mockRegistration = null, verifiedPolygon = null } = {}) {
   // A test-only preview MUST NOT be presented as a confirmed customer registration.
   // Actual authorization/payment checks belong to the trusted registration service.
   const verified = verifiedRegistration?.verified === true;
@@ -47,6 +47,17 @@ export function buildNftGatheringBoard({ verifiedRegistration = null, mockRegist
     purchaseTransactionId: registrationSlot(r.purchase_transaction_id),
     registrationDate: registrationSlot(r.registration_date),
   });
+  // Only project a trusted server-side readback bound to this exact registration.
+  const p = verifiedPolygon;
+  const polygonReady = verified && p?.verified === true && p.chainId === 80002 &&
+    [r.registration_id,r.album_id,r.album_copy_number].every(v => typeof v === 'string' && v.trim()) &&
+    p.registrationId === r.registration_id && p.albumId === r.album_id && p.copyNumber === r.album_copy_number &&
+    /^0x[0-9a-fA-F]{40}$/.test(p.contractAddress ?? '') &&
+    /^0x[0-9a-fA-F]{40}$/.test(p.verifiedWallet ?? '') &&
+    /^0x[0-9a-fA-F]{64}$/.test(p.transactionHash ?? '') &&
+    typeof p.tokenId === 'string' && /^[1-9][0-9]*$/.test(p.tokenId);
+  if (p != null && !polygonReady) throw new Error('Invalid or mismatched Polygon readback');
+  const polygonValue = key => polygonReady ? p[key] : null;
   return Object.freeze({
     version: "ajine-nft-gathering-board-v1",
     mode: mock ? "mock_preview" : verified ? "verified_projection" : "not_connected",
@@ -68,11 +79,11 @@ export function buildNftGatheringBoard({ verifiedRegistration = null, mockRegist
         assignmentId: slot(RARITY, "nft.album-rarity-record"),
       }),
       polygon: group({
-        network: slot(POLYGON, "nft.NFT_Registry+thirdparty.myCollection"),
-        contractAddress: slot(POLYGON, "nft.NFT_Registry+thirdparty.myCollection"),
-        tokenId: slot(POLYGON, "nft.NFT_Registry+thirdparty.myCollection"),
-        mintTransactionHash: slot(POLYGON, "nft.NFT_Registry+thirdparty.myCollection"),
-        verifiedWallet: slot(POLYGON, "nft.NFT_Registry"),
+        network: slot(POLYGON, "nft.NFT_Registry+thirdparty.myCollection", polygonReady ? "polygon-amoy" : null),
+        contractAddress: slot(POLYGON, "nft.NFT_Registry+thirdparty.myCollection", polygonValue("contractAddress")),
+        tokenId: slot(POLYGON, "nft.NFT_Registry+thirdparty.myCollection", polygonValue("tokenId")),
+        mintTransactionHash: slot(POLYGON, "nft.NFT_Registry+thirdparty.myCollection", polygonValue("transactionHash")),
+        verifiedWallet: slot(POLYGON, "nft.NFT_Registry", polygonValue("verifiedWallet")),
       }),
       provenance: group({
         proofOfOwnership: slot(POLYGON, "thirdparty.myCollection"),
