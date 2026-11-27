@@ -7,7 +7,19 @@ import {randomUUID} from 'node:crypto';
 const connection=process.env.NFT_DATABASE_URL;
 const registration=process.argv[2];
 if(!connection || !/^[1-9][0-9]*$/.test(registration||''))throw Error('DATABASE_URL_AND_REGISTRATION_REQUIRED');
-const env={...process.env,PGDATABASE:connection};
+// libpq PGDATABASE is a database *name*, not a connection URI.
+// Split the Render URI into libpq environment fields so psql connects remotely
+// without exposing the secret URL in command-line arguments.
+const parsed=new URL(connection);
+if(!['postgresql:','postgres:'].includes(parsed.protocol)||!parsed.hostname||!parsed.username||!parsed.pathname.slice(1))throw Error('INVALID_DATABASE_URL');
+const env={...process.env,
+ PGHOST:parsed.hostname,
+ PGPORT:parsed.port||'5432',
+ PGUSER:decodeURIComponent(parsed.username),
+ PGPASSWORD:decodeURIComponent(parsed.password),
+ PGDATABASE:decodeURIComponent(parsed.pathname.slice(1)),
+ PGSSLMODE:parsed.searchParams.get('sslmode')||'require'
+};
 delete env.NFT_DATABASE_URL;
 const quote=s=>"'"+String(s).replaceAll("'","''")+"'";
 function run(sql){
