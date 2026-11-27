@@ -73,6 +73,9 @@ export async function executeAmoyBurn({evidence,env=process.env,fetchImpl=fetch}
    ]}},data:{status:'prepared',transaction_hash:signedHash.toLowerCase()}})
   });
   if(!response.ok)throw Error('BURN_PREBROADCAST_WRITE_HELD_'+response.status);
+  const affected=(await response.json()).data;
+  if(!Array.isArray(affected)||affected.length!==1||affected[0]?.id!==evidence.reservationId)
+   throw Error('BURN_PREBROADCAST_CONDITIONAL_UPDATE_HELD');
   const prepared=await read();
   if(!matches(prepared)||prepared.status!=='prepared'||
      String(prepared.transaction_hash).toLowerCase()!==signedHash.toLowerCase())
@@ -99,9 +102,17 @@ export async function executeAmoyBurn({evidence,env=process.env,fetchImpl=fetch}
    const verifiedRow=await read();
    if(!matches(verifiedRow)||String(verifiedRow.transaction_hash).toLowerCase()!==signedHash.toLowerCase()||
       verifiedRow.status!=='prepared')throw Error('BURN_RECORD_CHANGED');
-   const saved=await fetchImpl(url,{method:'PATCH',headers,redirect:'error',signal:AbortSignal.timeout(15000),
-      body:JSON.stringify({status:'confirmed'})});
+   const saved=await fetchImpl('https://directus-on-nft.onrender.com/items/NFT_Burn_Executions',
+      {method:'PATCH',headers,redirect:'error',signal:AbortSignal.timeout(15000),
+       body:JSON.stringify({query:{filter:{_and:[
+        {id:{_eq:evidence.reservationId}},
+        {status:{_eq:'prepared'}},
+        {transaction_hash:{_eq:signedHash.toLowerCase()}}
+       ]}},data:{status:'confirmed'}})});
    if(!saved.ok)throw Error('BURN_CONFIRMATION_WRITE_HELD_'+saved.status);
+   const affectedConfirmed=(await saved.json()).data;
+   if(!Array.isArray(affectedConfirmed)||affectedConfirmed.length!==1||
+      affectedConfirmed[0]?.id!==evidence.reservationId)throw Error('BURN_CONFIRMATION_CONDITIONAL_UPDATE_HELD');
    const confirmed=await read();
    if(!matches(confirmed)||confirmed.status!=='confirmed'||String(confirmed.transaction_hash).toLowerCase()!==signedHash.toLowerCase())
      throw Error('BURN_CONFIRMATION_READBACK_HELD');
