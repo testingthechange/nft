@@ -274,6 +274,31 @@ createServer(async (req, res) => {
       json(res,result.ok?200:503,result);
       return;
     }
+    if (path === '/api/pipeline2/burn-board/execute-confirmed') {
+      if (req.method !== 'POST') { json(res,405,{ok:false,error:'method_not_allowed'}); return; }
+      if (!pipeline2ConnectionEnabled() || process.env.AJINE_FINAL_BURN_EXECUTION_ENABLED!=='true' ||
+          process.env.AJINE_AMOY_BURN_ENABLED!=='true') {
+        json(res,503,{ok:false,error:'burn_execution_disabled'}); return;
+      }
+      const secret=process.env.AJINE_PIPELINE2_CONNECTION_TOKEN;
+      const supplied=String(req.headers.authorization||'').startsWith('Bearer ')?String(req.headers.authorization).slice(7):'';
+      if(!secret||secret.length<32||Buffer.byteLength(supplied)!==Buffer.byteLength(secret)||
+          !timingSafeEqual(Buffer.from(supplied),Buffer.from(secret))){
+        json(res,401,{ok:false,error:'unauthorized'});return;
+      }
+      let input;
+      try{input=await readJson(req);}catch(error){json(res,error.http||400,{ok:false,error:error.message});return;}
+      try{
+        const {completeDiscountBurn,recoverDiscountBurn}=await import('./pipeline2CompleteDiscountBurn.mjs');
+        const result=input?.recoveryOnly===true?
+          await recoverDiscountBurn({input}):await completeDiscountBurn({input});
+        json(res,200,result);
+      }catch(error){
+        console.error('AJINE_PIPELINE2_FINAL_EXECUTION_HELD',String(error?.message||'FAILED').slice(0,100));
+        json(res,409,{ok:false,error:'burn_execution_held',retryAllowed:false});
+      }
+      return;
+    }
     if (path === '/api/pipeline2/burn-board/authorization') {
       if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
       if (!pipeline2ConnectionEnabled()) { json(res,503,{error:'connection_disabled'}); return; }
