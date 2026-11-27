@@ -1,3 +1,4 @@
+import {createHash} from 'node:crypto';
 import {readCommercialPreprintRegistration} from './nftCommercialPreprintEvidence.mjs';
 import {storeVerifiedNftForBurn} from './pipeline2NftRegistry.mjs';
 // Internal staging only. Caller must be the authenticated commercial intake.
@@ -27,5 +28,28 @@ export async function stageVerifiedBurnEvidence({authorization:a,env=process.env
   if(!response.ok)throw Error('AGREEMENT_WRITE_HTTP_'+response.status);
  }
  if(!matches(await api('GET')))throw Error('AGREEMENT_READBACK_MISMATCH');
- return Object.freeze({registrationId:a.registrationId,nftRegistryId:n.nftRegistryId,albumRegistrationId:n.albumRegistrationId,tokenId:n.tokenId,agreementId:a.agreementId,stored:true,burn_enabled:false});
+ // Deterministic event identity shared with the commercial mirror.
+ const hex=createHash('sha256').update('ajine:agreement:pending:'+a.agreementId).digest('hex');
+ const eventId=hex.slice(0,8)+'-'+hex.slice(8,12)+'-8'+hex.slice(13,16)+'-a'+hex.slice(17,20)+'-'+hex.slice(20,32);
+ const event={id:eventId,agreement_id:a.agreementId,registration_id:a.registrationId,event_type:'pending',occurred_at:new Date(a.acceptedAt).toISOString()};
+ const base='https://directus-on-nft.onrender.com/items/NFT_Agreement_Events';
+ async function eventApi(method,suffix,body){
+  return fetch(base+suffix,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(15000)});
+ }
+ const query='?filter[id][_eq]='+encodeURIComponent(eventId)+'&limit=2';
+ async function readEvent(){
+  const response=await eventApi('GET',query);
+  if(!response.ok)throw Error('AGREEMENT_EVENT_READ_HTTP_'+response.status);
+  const rows=(await response.json()).data;
+  if(!Array.isArray(rows)||rows.length>1)throw Error('AGREEMENT_EVENT_CONFLICT');
+  return rows[0];
+ }
+ let recorded=await readEvent();
+ if(!recorded){
+  const response=await eventApi('POST','',event);
+  recorded=await readEvent();
+  if(!recorded)throw Error('AGREEMENT_EVENT_WRITE_HTTP_'+response.status);
+ }
+ if(!Object.entries(event).every(([k,v])=>k==='occurred_at'?Date.parse(recorded[k])===Date.parse(v):String(recorded[k])===v))throw Error('AGREEMENT_EVENT_READBACK_MISMATCH');
+ return Object.freeze({eventId,registrationId:a.registrationId,nftRegistryId:n.nftRegistryId,albumRegistrationId:n.albumRegistrationId,tokenId:n.tokenId,agreementId:a.agreementId,stored:true,burn_enabled:false});
 }
