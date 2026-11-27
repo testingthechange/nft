@@ -556,6 +556,15 @@ createServer(async (req, res) => {
       json(res, result.passed ? 200 : 503, result);
       return;
     }
+    if (path === '/api/nft/burn-board/polygon-status') {
+      if (req.method !== 'GET') { json(res,405,{error:'method_not_allowed'}); return; }
+      // Public, data-free network status only; no wallet, token or transaction access.
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Cache-Control', 'no-store');
+      const status = await readPolygonAmoyStatus();
+      json(res,status.connected ? 200 : 503,{connected:status.connected === true,chain_id:status.chain_id ?? null,block_number:status.block_number ?? null,burn_enabled:false});
+      return;
+    }
     if (path === '/api/polygon/status') {
       // Read-only browser status for the explicitly approved third-party site.
       // A missing/unapproved Origin receives no CORS permission.
