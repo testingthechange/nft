@@ -295,9 +295,17 @@ createServer(async (req, res) => {
          typeof b.userId!=='string'||!b.userId||b.userId.length>200){
         json(res,422,{error:'invalid_burn_authorization'});return;
       }
-      // Transport acknowledgement only. No trust flags, storage or execution.
+      // Authenticated staging only. No burn execution.
       console.info('AJINE_PIPELINE2_AUTHORIZATION_RECEIVED',JSON.stringify({registrationId:b.registrationId,agreementId:b.agreementId,tokenId:b.tokenId}));
-      json(res,200,{ok:true,registrationId:b.registrationId,agreementId:b.agreementId,tokenId:b.tokenId,stored:false,burn_enabled:false});
+      try {
+        const {stageVerifiedBurnEvidence}=await import('./pipeline2VerifiedBurnEvidence.mjs');
+        const result=await stageVerifiedBurnEvidence({authorization:b});
+        console.info('AJINE_PIPELINE2_AUTHORIZATION_STORED',JSON.stringify({registrationId:b.registrationId,agreementId:b.agreementId,tokenId:b.tokenId}));
+        json(res,200,{ok:true,...result,burn_enabled:false});
+      } catch(error) {
+        console.warn('AJINE_PIPELINE2_AUTHORIZATION_HELD',JSON.stringify({registrationId:b.registrationId,reason:String(error.message).slice(0,160)}));
+        json(res,422,{ok:false,error:'authorization_storage_held',stored:false,burn_enabled:false});
+      }
       return;
     }
     if (path === '/api/pipeline2/burn-board/preview') {
