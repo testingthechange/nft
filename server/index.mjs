@@ -295,6 +295,21 @@ createServer(async (req, res) => {
          typeof b.userId!=='string'||!b.userId||b.userId.length>200){
         json(res,422,{error:'invalid_burn_authorization'});return;
       }
+      // Explicit read-only diagnostic. Never stages, reserves or burns an NFT.
+      // Authenticated by the existing private Pipeline 2 connection token.
+      if(b.verificationOnly===true){
+        if(b.withdrawal||b.renewal){json(res,422,{ok:false,error:'verification_only_conflict',burn_enabled:false});return;}
+        try{
+          const {verifyNftBurnAdmission}=await import('./pipeline2BurnAdmissionReadback.mjs');
+          const verification=await verifyNftBurnAdmission({authorization:b});
+          console.info('AJINE_PIPELINE2_BURN_READBACK_VERIFIED',JSON.stringify({registrationId:b.registrationId,agreementId:b.agreementId,eventId:verification.agreementEventId}));
+          json(res,200,{ok:true,verified:true,registrationId:verification.registrationId,agreementId:verification.agreementId,tokenId:verification.tokenId,agreementEventId:verification.agreementEventId,eventCount:verification.eventCount,stored:false,reserved:false,burn_enabled:false});
+        }catch(error){
+          console.warn('AJINE_PIPELINE2_BURN_READBACK_HELD',String(error?.message||'FAILED').slice(0,100));
+          json(res,422,{ok:false,verified:false,stored:false,reserved:false,burn_enabled:false,error:'readback_held'});
+        }
+        return;
+      }
       // Authenticated staging only. No burn execution.
       console.info('AJINE_PIPELINE2_AUTHORIZATION_RECEIVED',JSON.stringify({registrationId:b.registrationId,agreementId:b.agreementId,tokenId:b.tokenId}));
       try {
