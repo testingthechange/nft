@@ -13,7 +13,7 @@ export function inspectRegistrationNftReturn({original,returned,registrationAuth
   const releasable=matches&&!synthetic&&registrationAuthorized===true &&
     polygonProofVerified===true&&verified&&
     ((rarityVerified===true&&layerTwoRarityVerified===true)||
-      (betaCoreOnly===true&&original.registration_id==='6'&&
+      (betaCoreOnly===true&&/^[1-9][0-9]*$/.test(original.registration_id)&&
        /^ALBUM-BETA-/.test(original.album_id)&&/^COPY-BETA-/.test(original.album_copy_number)&&
        rarityVerified===false&&layerTwoRarityVerified===false));
   return Object.freeze({
