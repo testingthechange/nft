@@ -30,6 +30,17 @@ export async function storeVerifiedNftForBurn({registrationId,mintTransactionHas
   for(let attempt=0;attempt<3;attempt++){
    const r=await fetch('https://directus-on-nft.onrender.com'+path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(15000)});
    if(r.ok)return (await r.json()).data;
+   if(r.status===429){
+    let code=null;
+    if((r.headers.get('content-type')||'').includes('application/json')){
+     try{const payload=await r.clone().json();const value=payload?.errors?.[0]?.extensions?.code;if(typeof value==='string'&&/^[A-Z0-9_]{1,80}$/.test(value))code=value;}catch{}
+    }
+    const headers={};
+    for(const name of ['server','via','content-type','retry-after','x-ratelimit-limit','x-ratelimit-remaining','x-ratelimit-reset','cf-ray','rndr-id']){
+     const value=r.headers.get(name);if(value)headers[name]=value.slice(0,120);
+    }
+    console.warn('AJINE_PIPELINE2_DIRECTUS_429_SOURCE',JSON.stringify({method,collection:path.split('?')[0],status:r.status,code,headers}));
+   }
    if(method!=='GET'||r.status!==429||attempt===2)throw Error('NFT_DIRECTUS_'+method+'_HTTP_'+r.status);
    const header=r.headers.get('retry-after');
    const delay=header===null?1000*2**attempt:/^\d+$/.test(header)?Number(header)*1000:Math.max(0,Date.parse(header)-Date.now());
