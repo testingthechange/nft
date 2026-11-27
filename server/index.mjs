@@ -274,6 +274,32 @@ createServer(async (req, res) => {
       json(res,result.ok?200:503,result);
       return;
     }
+    if (path === '/api/pipeline2/burn-board/authorization') {
+      if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
+      if (!pipeline2ConnectionEnabled()) { json(res,503,{error:'connection_disabled'}); return; }
+      const expected=Buffer.from(process.env.AJINE_PIPELINE2_CONNECTION_TOKEN);
+      const header=req.headers.authorization||'';
+      const supplied=Buffer.from(header.startsWith('Bearer ')?header.slice(7):'');
+      if(supplied.length!==expected.length||!timingSafeEqual(supplied,expected)){json(res,401,{error:'unauthorized'});return;}
+      let b;
+      try{b=await readJson(req);}catch(error){json(res,error.http||400,{error:error.message});return;}
+      const positive=v=>typeof v==='string'&&/^[1-9][0-9]*$/.test(v);
+      if(!b||!positive(b.registrationId)||BigInt(b.registrationId)<=6n||!Number.isSafeInteger(b.ownershipRecordId)||b.ownershipRecordId<1||
+         typeof b.albumId!=='string'||!/^ALBUM-BETA-[A-Za-z0-9_-]+$/.test(b.albumId)||
+         typeof b.copyNumber!=='string'||!/^COPY-BETA-[1-9][0-9]*$/.test(b.copyNumber)||
+         typeof b.contractAddress!=='string'||b.contractAddress.toLowerCase()!=='0xa8d7598d2be127727f15667f4f5b4773ff1ec361'||
+         !positive(b.tokenId)||typeof b.mintTransactionHash!=='string'||!/^0x[0-9a-f]{64}$/i.test(b.mintTransactionHash)||
+         b.network!=='polygon-amoy'||b.option!=='discount'||b.agreementVersion!=='discount-v1'||
+         typeof b.agreementId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.agreementId)||
+         typeof b.acceptedAt!=='string'||!Number.isFinite(Date.parse(b.acceptedAt))||Date.parse(b.acceptedAt)>Date.now()||
+         typeof b.userId!=='string'||!b.userId||b.userId.length>200){
+        json(res,422,{error:'invalid_burn_authorization'});return;
+      }
+      // Transport acknowledgement only. No trust flags, storage or execution.
+      console.info('AJINE_PIPELINE2_AUTHORIZATION_RECEIVED',JSON.stringify({registrationId:b.registrationId,agreementId:b.agreementId,tokenId:b.tokenId}));
+      json(res,200,{ok:true,registrationId:b.registrationId,agreementId:b.agreementId,tokenId:b.tokenId,stored:false,burn_enabled:false});
+      return;
+    }
     if (path === '/api/pipeline2/burn-board/preview') {
       if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
       if (!pipeline2ConnectionEnabled()) { json(res,503,{error:'connection_disabled'}); return; }
