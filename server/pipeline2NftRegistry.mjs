@@ -27,9 +27,18 @@ export async function storeVerifiedNftForBurn({registrationId,mintTransactionHas
   proof={contract_address:address.toLowerCase(),token_id:id.toString(),polygon_network:'polygon-amoy',owner_wallet:custody.toLowerCase(),mint_status:'minted',transaction_hash:receipt.hash.toLowerCase(),metadata_url:await c.tokenURI(id),mint_confirmation_date:new Date(block.timestamp*1000).toISOString()};
  }finally{provider.destroy()}
  async function api(path,method='GET',body){
-  const r=await fetch('https://directus-on-nft.onrender.com'+path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(15000)});
-  if(!r.ok)throw Error('NFT_DIRECTUS_'+method+'_HTTP_'+r.status);
-  return (await r.json()).data;
+  for(let attempt=0;attempt<3;attempt++){
+   const r=await fetch('https://directus-on-nft.onrender.com'+path,{method,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{}),redirect:'error',signal:AbortSignal.timeout(15000)});
+   if(r.ok)return (await r.json()).data;
+   if(method!=='GET'||r.status!==429||attempt===2)throw Error('NFT_DIRECTUS_'+method+'_HTTP_'+r.status);
+   const header=r.headers.get('retry-after');
+   const delay=header===null?1000*2**attempt:/^\d+$/.test(header)?Number(header)*1000:Math.max(0,Date.parse(header)-Date.now());
+   if(!Number.isFinite(delay)||delay>10000)throw Error('NFT_DIRECTUS_GET_RATE_LIMIT_HELD');
+   await r.body?.cancel();
+   console.info('AJINE_PIPELINE2_DIRECTUS_READ_RETRY',JSON.stringify({attempt:attempt+1,delayMs:delay}));
+   await new Promise(resolve=>setTimeout(resolve,Math.max(250,delay)));
+  }
+  throw Error('NFT_DIRECTUS_GET_RATE_LIMIT_HELD');
  }
  async function exact(collection,filter,record){
   const query='/items/'+collection+'?limit=2&filter='+encodeURIComponent(JSON.stringify(filter));
