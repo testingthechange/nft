@@ -11,6 +11,9 @@ export async function checkBlockRadiusPreMint({
 }={}) {
   const expected='https://ajine-nft-api.onrender.com/beta/block-radius-copy'+(registrationId==='6'?'':'/'+registrationId)+'.json';
   const checks={
+    mintEndpointEnabled:env.AJINE_BETA_MINT_ENDPOINT_ENABLED==='true',
+    amoyMintEnabled:env.AJINE_AMOY_MINT_ENABLED==='true',
+    mintDeliveryReady:env.AJINE_BETA_MINT_DELIVERY_READY==='true',
     mintEndpointLocked:env.AJINE_BETA_MINT_ENDPOINT_ENABLED!=='true'||
       env.AJINE_AMOY_MINT_ENABLED!=='true'||env.AJINE_BETA_MINT_DELIVERY_READY!=='true',
     operatorTokenConfigured:typeof env.AJINE_BETA_MINT_OPERATOR_TOKEN==='string'&&env.AJINE_BETA_MINT_OPERATOR_TOKEN.length>=32,
