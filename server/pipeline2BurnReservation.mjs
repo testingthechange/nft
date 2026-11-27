@@ -8,6 +8,8 @@ const base='https://directus-on-nft.onrender.com/items/NFT_Burn_Executions';
 export async function reserveVerifiedNftBurn({authorization,env=process.env,fetchImpl=fetch,verify=verifyNftBurnAdmission}={}){
  if(env.AJINE_BURN_RESERVATION_ENABLED!=='true')throw Error('BURN_RESERVATION_DISABLED');
  const verified=await verify({authorization,env,fetchImpl});
+ if(authorization?.confirmBurn!==true||authorization?.reserveOnly!==true||authorization?.verificationOnly===true||
+    authorization?.expectedEventId!==verified?.agreementEventId)throw Error('BURN_FINAL_EVENT_MISMATCH');
  if(verified?.verified!==true||verified.burn_enabled!==false||
     !verified.agreementEventId||!verified.agreementId||!verified.registrationId||
     !verified.nftIdentity||!verified.tokenId)throw Error('BURN_RESERVATION_NOT_VERIFIED');

@@ -310,6 +310,23 @@ createServer(async (req, res) => {
         }
         return;
       }
+      // Final customer-confirmed reservation: never executes a Polygon burn.
+      // Existing private Pipeline 2 bearer authentication is enforced above.
+      if(b.reserveOnly===true){
+        const validEvent=typeof b.expectedEventId==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.expectedEventId);
+        if(b.confirmBurn!==true||!validEvent||b.withdrawal||b.renewal||b.verificationOnly===true){
+          json(res,422,{ok:false,reserved:false,burn_enabled:false,error:'final_reservation_invalid'});return;
+        }
+        try{
+          const {reserveVerifiedNftBurn}=await import('./pipeline2BurnReservation.mjs');
+          const result=await reserveVerifiedNftBurn({authorization:b});
+          json(res,200,{ok:true,...result,burn_enabled:false});
+        }catch(error){
+          console.warn('AJINE_PIPELINE2_RESERVATION_HELD',String(error?.message||'FAILED').slice(0,100));
+          json(res,409,{ok:false,reserved:false,burn_enabled:false,error:'reservation_held'});
+        }
+        return;
+      }
       // Authenticated staging only. No burn execution.
       console.info('AJINE_PIPELINE2_AUTHORIZATION_RECEIVED',JSON.stringify({registrationId:b.registrationId,agreementId:b.agreementId,tokenId:b.tokenId}));
       try {
