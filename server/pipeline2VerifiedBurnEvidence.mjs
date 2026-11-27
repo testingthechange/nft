@@ -51,5 +51,29 @@ export async function stageVerifiedBurnEvidence({authorization:a,env=process.env
   if(!recorded)throw Error('AGREEMENT_EVENT_WRITE_HTTP_'+response.status);
  }
  if(!Object.entries(event).every(([k,v])=>k==='occurred_at'?Date.parse(recorded[k])===Date.parse(v):String(recorded[k])===v))throw Error('AGREEMENT_EVENT_READBACK_MISMATCH');
+ // Withdrawal is a separate immutable event; original acceptance stays intact.
+ let withdrawalId=null;
+ if(a.withdrawal){
+  const w=a.withdrawal;
+  if(typeof w.occurredAt!=='string'||!Number.isFinite(Date.parse(w.occurredAt))||Date.parse(w.occurredAt)<=Date.parse(a.acceptedAt)||Date.parse(w.occurredAt)>Date.now())throw Error('WITHDRAWAL_TIME_INVALID');
+  const h=createHash('sha256').update('ajine:agreement:withdrawn:'+a.agreementId).digest('hex');
+  withdrawalId=h.slice(0,8)+'-'+h.slice(8,12)+'-8'+h.slice(13,16)+'-a'+h.slice(17,20)+'-'+h.slice(20,32);
+  const q='?filter[id][_eq]='+encodeURIComponent(withdrawalId)+'&limit=2';
+  const expected={id:withdrawalId,agreement_id:a.agreementId,registration_id:a.registrationId,event_type:'withdrawn',occurred_at:new Date(w.occurredAt).toISOString()};
+  async function readWithdrawal(){
+   const response=await eventApi('GET',q);
+   if(!response.ok)throw Error('WITHDRAWAL_READ_HTTP_'+response.status);
+   const rows=(await response.json()).data;
+   if(!Array.isArray(rows)||rows.length>1)throw Error('WITHDRAWAL_CONFLICT');
+   return rows[0];
+  }
+  let row=await readWithdrawal();
+  if(!row){
+   await eventApi('POST','',expected);
+   row=await readWithdrawal();
+  }
+  if(!row||!Object.entries(expected).every(([k,v])=>k==='occurred_at'?Number.isFinite(Date.parse(row[k]))&&Date.parse(row[k])>Date.parse(a.acceptedAt):String(row[k])===v))throw Error('WITHDRAWAL_READBACK_MISMATCH');
+  return Object.freeze({eventId,withdrawalId,withdrawnAt:new Date(row.occurred_at).toISOString(),registrationId:a.registrationId,nftRegistryId:n.nftRegistryId,albumRegistrationId:n.albumRegistrationId,tokenId:n.tokenId,agreementId:a.agreementId,stored:true,burn_enabled:false});
+ }
  return Object.freeze({eventId,registrationId:a.registrationId,nftRegistryId:n.nftRegistryId,albumRegistrationId:n.albumRegistrationId,tokenId:n.tokenId,agreementId:a.agreementId,stored:true,burn_enabled:false});
 }
