@@ -5,10 +5,11 @@ import {resolveBetaMetadataUrl} from './nftBetaMetadataUri.mjs';
 
 export async function checkBlockRadiusPreMint({
   env=process.env,
+  registrationId='6',
   buildMetadata=buildFirstBetaMetadata,
   verifyMetadata=readVerifiedBetaMetadata
 }={}) {
-  const expected='https://ajine-nft-api.onrender.com/beta/block-radius-copy.json';
+  const expected='https://ajine-nft-api.onrender.com/beta/block-radius-copy'+(registrationId==='6'?'':'/'+registrationId)+'.json';
   const checks={
     mintEndpointLocked:env.AJINE_BETA_MINT_ENDPOINT_ENABLED!=='true'||
       env.AJINE_AMOY_MINT_ENABLED!=='true'||env.AJINE_BETA_MINT_DELIVERY_READY!=='true',
@@ -16,15 +17,15 @@ export async function checkBlockRadiusPreMint({
     commercialReturnTokenConfigured:typeof env.AJINE_PIPELINE1_RETURN_TOKEN==='string'&&env.AJINE_PIPELINE1_RETURN_TOKEN.length>=32,
     amoyConnectionConfigured:!!env.POLYGON_AMOY_RPC_URL&&!!env.AJINE_AMOY_MINT_PRIVATE_KEY&&
       !!env.AJINE_AMOY_NFT_CONTRACT&&!!env.AJINE_AMOY_CUSTODY_ADDRESS,
-    metadataUrlConfigured:env.AJINE_BETA_METADATA_HTTPS_URL===expected,
+    metadataUrlConfigured:registrationId!=='6'||env.AJINE_BETA_METADATA_HTTPS_URL===expected,
     registrationAndManifestVerified:false,
     metadataReadbackVerified:false
   };
   let blockReason=null,identity=null;
   try {
     resolveBetaMetadataUrl(expected,{env});
-    const metadata=await buildMetadata({env});
-    if(metadata?.registrationId!=='6'||
+    const metadata=await buildMetadata({env,registrationId});
+    if(metadata?.registrationId!==registrationId||
       metadata?.albumId!=='ALBUM-BETA-share_475784'||
       !/^COPY-BETA-[1-9][0-9]*$/.test(metadata?.copyNumber??'')||
       typeof metadata.image!=='string'||!metadata.image.startsWith('https://')||
@@ -33,7 +34,7 @@ export async function checkBlockRadiusPreMint({
       metadata.name!==metadata.albumTitle+' — Beta Album Copy')
       throw Error('BETA_METADATA_IDENTITY_INVALID');
     checks.registrationAndManifestVerified=true;
-    identity={registrationId:'6',albumId:metadata.albumId,copyNumber:metadata.copyNumber};
+    identity={registrationId,albumId:metadata.albumId,copyNumber:metadata.copyNumber};
     const verified=await verifyMetadata({metadataUri:expected,identity});
     checks.metadataReadbackVerified=verified?.verified===true;
     if(!checks.metadataReadbackVerified)blockReason='METADATA_READBACK_UNVERIFIED';
@@ -52,7 +53,7 @@ export async function checkBlockRadiusPreMint({
   const localReady=checks.operatorTokenConfigured&&checks.commercialReturnTokenConfigured&&
     checks.amoyConnectionConfigured&&checks.metadataUrlConfigured&&
     checks.registrationAndManifestVerified&&checks.metadataReadbackVerified;
-  return Object.freeze({registrationId:'6',network:'polygon-amoy',readOnly:true,
+  return Object.freeze({registrationId,network:'polygon-amoy',readOnly:true,
     localReady,mintAuthorized:false,
     commercialWriteVerified:false,
     checks,blockReason});
