@@ -72,7 +72,7 @@ export async function completeDiscountBurn({input,env=process.env,fetchImpl=fetc
 export async function recoverDiscountBurn({input,env=process.env,fetchImpl=fetch,
  record=recordConfirmedAjineBurn,reconcile=reconcilePreparedAmoyBurn}={}){
  // No signing and no broadcast. Access only via private machine-token route.
- if(env.AJINE_FINAL_BURN_EXECUTION_ENABLED!=='true')throw Error('FINAL_BURN_RECOVERY_DISABLED');
+ if(env.AJINE_FINAL_BURN_RECOVERY_ENABLED!=='true')throw Error('FINAL_BURN_RECOVERY_DISABLED');
  if(!uuid.test(input?.reservationId||''))throw Error('FINAL_BURN_RECOVERY_INPUT_INVALID');
  const result=await reconcile({reservationId:input.reservationId,env,fetchImpl});
  if(result?.confirmed!==true)return Object.freeze({ok:true,confirmed:false,retryAllowed:false,reservationId:input.reservationId});
