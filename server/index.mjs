@@ -89,10 +89,10 @@ createServer(async (req, res) => {
   }
   try {
     const path = new URL(req.url, 'http://localhost').pathname;
-    if (path === '/beta/block-radius-copy.json') {
+    if (path === '/beta/block-radius-copy.json' || /^\/beta\/block-radius-copy\/[1-9][0-9]*\.json$/.test(path)) {
       if (req.method !== 'GET') { json(res,405,{error:'method_not_allowed'}); return; }
       try {
-        const metadata=await buildFirstBetaMetadata();
+        const metadata=await buildFirstBetaMetadata({registrationId:path==='/beta/block-radius-copy.json'?'6':path.split('/').pop().slice(0,-5)});
         json(res,200,metadata);
       } catch(error) {
         console.warn('AJINE_BETA_METADATA_UNAVAILABLE',String(error?.message||'UNKNOWN').slice(0,100));
@@ -104,7 +104,9 @@ createServer(async (req, res) => {
       if(req.method!=='POST'){json(res,405,{ok:false,error:'method_not_allowed'});return;}
       if(!authorized(req)){json(res,401,{ok:false,error:'unauthorized'});return;}
       try{
-        const report=await checkBlockRadiusPreMint();
+        const registrationId=new URL(req.url,'http://localhost').searchParams.get('registrationId')||'6';
+        if(!/^[1-9][0-9]*$/.test(registrationId)){json(res,422,{ok:false,error:'invalid_registration'});return;}
+        const report=await checkBlockRadiusPreMint({registrationId});
         json(res,200,{ok:true,...report});
       }catch{
         json(res,503,{ok:false,error:'beta_preflight_unavailable',mintAuthorized:false});
@@ -140,18 +142,18 @@ createServer(async (req, res) => {
       let body;
       try{body=await readJson(req);}
       catch(error){json(res,error.http||400,{ok:false,error:error.message});return;}
-      if(String(body?.registrationId)!=='6'||typeof body?.metadataUri!=='string'||
+      if(!/^[1-9][0-9]*$/.test(String(body?.registrationId))||typeof body?.metadataUri!=='string'||
          body.metadataUri.length>2048) {
         json(res,422,{ok:false,error:'beta_mint_request_invalid'});return;
       }
       try{
-        const result=await runFirstBetaMint({registrationId:'6',metadataUri:body.metadataUri});
+        const result=await runFirstBetaMint({registrationId:String(body.registrationId),metadataUri:body.metadataUri});
         json(res,result.stored===true?200:202,{ok:result.stored===true,...result});
       }catch(error){
         // Never retry an uncertain transaction automatically; reconcile by exact copy on Polygon.
         const uncertain=String(error?.message||'').startsWith('MINT_CONFIRMATION_UNCERTAIN_RECONCILE_');
         console.error('AJINE_BETA_MINT_ATTEMPT',JSON.stringify({
-          registrationId:'6',errorCode:uncertain?'CONFIRMATION_UNCERTAIN':String(error?.message||'MINT_FAILED').slice(0,90)
+          registrationId:String(body.registrationId),errorCode:uncertain?'CONFIRMATION_UNCERTAIN':String(error?.message||'MINT_FAILED').slice(0,90)
         }));
         json(res,uncertain?409:422,{ok:false,
           error:uncertain?'mint_confirmation_uncertain_reconcile_required':'beta_mint_failed',

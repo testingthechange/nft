@@ -1,5 +1,5 @@
 import {assemblePipeline1OwnershipReturn} from './pipeline1ConsolidatedReturn.mjs';
-// One-copy beta mint entry point. Restricted to verified Registration #6.
+// One-copy beta mint entry point. Uses exact verified registration identity.
 // Never trust caller-supplied payment, ownership, rarity or chain proof.
 import {readCommercialPreprintRegistration} from './nftCommercialPreprintEvidence.mjs';
 import {prepareInternalMintReturn} from './nftInternalMintReturn.mjs';
@@ -10,14 +10,16 @@ export async function runFirstBetaMint({registrationId,metadataUri,env=process.e
   if(env.AJINE_BETA_MINT_ENDPOINT_ENABLED!=='true'||
      env.AJINE_AMOY_MINT_ENABLED!=='true'||
      env.AJINE_BETA_MINT_DELIVERY_READY!=='true')throw Error('BETA_MINT_LOCKED');
-  if(String(registrationId)!=='6')throw Error('BETA_REGISTRATION_NOT_ALLOWED');
+  registrationId=String(registrationId);
+  if(!/^[1-9][0-9]*$/.test(registrationId)||BigInt(registrationId)<=6n)throw Error('BETA_REGISTRATION_NOT_ALLOWED');
+  if(env.AJINE_AMOY_NFT_CONTRACT?.toLowerCase()!=='0xa8d7598d2be127727f15667f4f5b4773ff1ec361')throw Error('BURNABLE_CONTRACT_REQUIRED');
   if(mintInProgress)throw Error('BETA_MINT_ALREADY_IN_PROGRESS');
   mintInProgress=true;
   try{
-    const e=await readCommercialPreprintRegistration('6');
+    const e=await readCommercialPreprintRegistration(registrationId);
     if(e.verified!==true||e.registrationVerified!==true||
        e.paymentRecordMatched!==true||e.ownershipVerified!==true||
-       e.registrationId!=='6'||!e.albumId?.startsWith('ALBUM-BETA-')||
+       e.registrationId!==registrationId||!e.albumId?.startsWith('ALBUM-BETA-')||
        !e.copyNumber?.startsWith('COPY-BETA-'))
       throw Error('BETA_REGISTRATION_NOT_VERIFIED');
     const registration=Object.freeze({
@@ -30,7 +32,7 @@ export async function runFirstBetaMint({registrationId,metadataUri,env=process.e
       transactionId:e.purchaseTransactionId,albumId:e.albumId,
       orderNumber:e.orderNumber,pricePaidCents:e.pricePaidCents,currency:e.currency
     });
-    // BETA-6 is the persisted Directus purchased-copy ID verified by the commercial readback.
+    // Use the persisted purchased-copy identity.
     const ownership=Object.freeze({
       registrationId:e.registrationId,albumId:e.albumId,copyNumber:e.copyNumber,
       ownerId:e.registeredOwnerId,ownershipKey:'BETA-'+e.registrationId
@@ -62,7 +64,7 @@ export async function runFirstBetaMint({registrationId,metadataUri,env=process.e
     }catch(error){
       deliveryStatus='reconciliation_required';
       console.error('AJINE_BETA_MINT_RETURN_NOT_STORED',JSON.stringify({
-        registrationId:'6',transactionHash:proof.transactionHash,
+        registrationId:e.registrationId,transactionHash:proof.transactionHash,
         reason:String(error?.message||'UNKNOWN').slice(0,100)
       }));
     }
