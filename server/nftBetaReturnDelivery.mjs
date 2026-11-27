@@ -2,8 +2,8 @@
 // Commercial service independently verifies the exact copy and Polygon proof
 // before committing NFT fields to its Directus-backed ownership record.
 export async function deliverVerifiedBetaReturn({originalRegistration,returnPackage,env=process.env,fetcher=fetch}={}){
-  if(originalRegistration?.registration_id!=='6'||
-     returnPackage?.identity?.registrationId!=='6'||
+  if(!/^[1-9][0-9]*$/.test(originalRegistration?.registration_id??'')||
+     returnPackage?.identity?.registrationId!==originalRegistration.registration_id||
      returnPackage?.fixtureOnly!==false||
      returnPackage?.releaseAuthorized!==true||
      returnPackage?.nft?.verificationStatus!=='verified'||
