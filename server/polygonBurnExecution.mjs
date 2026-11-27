@@ -11,6 +11,7 @@ const hash=/^0x[0-9a-f]{64}$/i;
 let busy=false;
 export async function executeAmoyBurn({evidence,env=process.env,fetchImpl=fetch}={}){
  if(env.AJINE_AMOY_BURN_ENABLED!=='true')throw Error('BURN_DISABLED');
+ if(env.AJINE_AMOY_MINT_ENABLED==='true')throw Error('BURN_SIGNER_SHARED_WITH_ACTIVE_MINT');
  if(!evidence||evidence.verified!==true||evidence.agreementVerified!==true||
     evidence.option!=='discount'||evidence.network!=='polygon-amoy'||
     !uuid.test(evidence.reservationId||'')||!uuid.test(evidence.agreementId||'')||

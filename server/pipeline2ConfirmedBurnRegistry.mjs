@@ -36,7 +36,7 @@ export async function recordConfirmedAjineBurn({reservationId,env=process.env,fe
  if(existing.length===1){
   if(!matches(existing[0]))throw Error('AJINE_BURN_ALREADY_REGISTERED_DIFFERENTLY');
   return Object.freeze({ok:true,stored:true,ajineBurnNumber:number,burnRegistryId:existing[0].id,
-    registrationId:execution.registration_id,transactionHash:execution.transaction_hash,recovered:true});
+    agreementId:execution.agreement_id,registrationId:execution.registration_id,transactionHash:execution.transaction_hash,recovered:true});
  }
  const item={nft_link:nft.id,nft_id:String(nft.token_id),
    original_album_copy_number:'BETA-'+execution.registration_id,
@@ -56,5 +56,5 @@ export async function recordConfirmedAjineBurn({reservationId,env=process.env,fe
   throw Error('AJINE_BURN_REGISTRY_READBACK_HELD');
  console.info('AJINE_BURN_REGISTRY_CONFIRMED',JSON.stringify({registrationId:execution.registration_id,ajineBurnNumber:number}));
  return Object.freeze({ok:true,stored:true,ajineBurnNumber:number,burnRegistryId:check[0].id,
-   registrationId:execution.registration_id,transactionHash:execution.transaction_hash,recovered:false});
+   agreementId:execution.agreement_id,registrationId:execution.registration_id,transactionHash:execution.transaction_hash,recovered:false});
 }
