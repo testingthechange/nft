@@ -1,30 +1,38 @@
 // Operator-only Polygon Amoy deployment; no automatic rebroadcast on timeout.
 // Prints the locally signed transaction hash BEFORE submitting to RPC.
-import {Contract,ContractFactory,JsonRpcProvider,Wallet,getAddress,getCreateAddress,keccak256,ZeroAddress,formatEther} from 'ethers';
+import {Contract,ContractFactory,JsonRpcProvider,FetchRequest,Wallet,getAddress,getCreateAddress,keccak256,ZeroAddress,formatEther} from 'ethers';
 import {compileBurnableBetaNft} from './compile-burnable-beta-nft.mjs';
 
 async function main(){
  const rpc=process.env.POLYGON_AMOY_RPC_URL,key=process.env.AJINE_AMOY_MINT_PRIVATE_KEY;
  if(!rpc||!key)throw Error('RPC_AND_PRIVATE_KEY_REQUIRED');
  if(process.env.AJINE_AMOY_DEPLOY_CONFIRM!=='DEPLOY_AMOY_BURNABLE_BETA')throw Error('EXPLICIT_DEPLOY_CONFIRMATION_REQUIRED');
- const provider=new JsonRpcProvider(rpc,{name:'polygon-amoy',chainId:80002},{staticNetwork:true});
+ const request=new FetchRequest(rpc); request.timeout=15000;
+ const provider=new JsonRpcProvider(request,{name:'polygon-amoy',chainId:80002},{staticNetwork:true,batchMaxCount:1});
+ console.log('STAGE: chain verification');
  try{
   if(BigInt(await provider.send('eth_chainId',[]))!==80002n)throw Error('WRONG_CHAIN_EXPECTED_AMOY_80002');
   const signer=new Wallet(key,provider);
   const custody=process.env.AJINE_AMOY_CUSTODY_ADDRESS;
   if(custody&&getAddress(custody)!==signer.address)throw Error('CUSTODY_AND_SIGNER_MISMATCH');
+  console.log('STAGE: signer nonce');
   const confirmedNonce=await provider.getTransactionCount(signer.address,'latest');
   const pendingNonce=await provider.getTransactionCount(signer.address,'pending');
   if(confirmedNonce!==pendingNonce)throw Error('PENDING_SIGNER_TRANSACTION_CHECK_EXPLORER');
+  console.log('STAGE: predicted contract check');
   const predicted=getCreateAddress({from:signer.address,nonce:pendingNonce});
   if(await provider.getCode(predicted)!=='0x')throw Error('PREDICTED_CONTRACT_ALREADY_DEPLOYED');
+  console.log('STAGE: wallet balance');
   const balance=await provider.getBalance(signer.address);
   if(balance===0n)throw Error('SIGNER_NOT_FUNDED');
+  console.log('STAGE: compile contract');
   const {abi,bytecode}=compileBurnableBetaNft();
   const factory=new ContractFactory(abi,'0x'+bytecode,signer);
   const draft=await factory.getDeployTransaction(signer.address);
+  console.log('STAGE: estimate deployment gas');
   const estimated=await provider.estimateGas({...draft,from:signer.address});
   const gasLimit=estimated*12n/10n;
+  console.log('STAGE: fee data');
   const fee=await provider.getFeeData();
   const maxFee=fee.maxFeePerGas??fee.gasPrice;
   if(!maxFee||maxFee<=0n)throw Error('GAS_PRICE_UNAVAILABLE');
