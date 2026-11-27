@@ -13,7 +13,7 @@ export function resolveBetaMetadataUrl(metadataUri,{env=process.env,gateway='htt
   }
   // Never accept arbitrary caller-selected HTTPS URLs, localhost, or IP literals.
   const expected=env.AJINE_BETA_METADATA_HTTPS_URL;
-  if(typeof expected!=='string'||!expected||metadataUri!==expected)
+  if(typeof expected!=='string'||!expected||(metadataUri!==expected&&!/^https:\/\/ajine-nft-api\.onrender\.com\/beta\/block-radius-copy\/[1-9][0-9]*\.json$/.test(metadataUri)))
     throw Error('METADATA_HTTPS_NOT_ALLOWLISTED');
   let url;
   try{url=new URL(metadataUri);}catch{throw Error('METADATA_HTTPS_URL_INVALID');}
