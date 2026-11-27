@@ -64,12 +64,13 @@ export async function executeAmoyBurn({evidence,env=process.env,fetchImpl=fetch}
   const signedHash=Transaction.from(signed).hash;
   if(!hash.test(signedHash||''))throw Error('BURN_SIGNED_HASH_INVALID');
   // Conditional update binds the hash to the reserved NFT before any network broadcast.
-  const updateUrl='https://directus-on-nft.onrender.com/items/NFT_Burn_Executions'+
-    '?filter[id][_eq]='+encodeURIComponent(evidence.reservationId)+
-    '&filter[status][_eq]=reserved&filter[transaction_hash][_null]=true';
-  const response=await fetchImpl(updateUrl,{
+  const response=await fetchImpl('https://directus-on-nft.onrender.com/items/NFT_Burn_Executions',{
    method:'PATCH',headers,redirect:'error',signal:AbortSignal.timeout(15000),
-   body:JSON.stringify({status:'prepared',transaction_hash:signedHash.toLowerCase()})
+   body:JSON.stringify({query:{filter:{_and:[
+    {id:{_eq:evidence.reservationId}},
+    {status:{_eq:'reserved'}},
+    {transaction_hash:{_null:true}}
+   ]}},data:{status:'prepared',transaction_hash:signedHash.toLowerCase()}})
   });
   if(!response.ok)throw Error('BURN_PREBROADCAST_WRITE_HELD_'+response.status);
   const affected=(await response.json()).data;
@@ -101,12 +102,13 @@ export async function executeAmoyBurn({evidence,env=process.env,fetchImpl=fetch}
    const verifiedRow=await read();
    if(!matches(verifiedRow)||String(verifiedRow.transaction_hash).toLowerCase()!==signedHash.toLowerCase()||
       verifiedRow.status!=='prepared')throw Error('BURN_RECORD_CHANGED');
-   const saved=await fetchImpl('https://directus-on-nft.onrender.com/items/NFT_Burn_Executions'+
-      '?filter[id][_eq]='+encodeURIComponent(evidence.reservationId)+
-      '&filter[status][_eq]=prepared'+
-      '&filter[transaction_hash][_eq]='+encodeURIComponent(signedHash.toLowerCase()),
+   const saved=await fetchImpl('https://directus-on-nft.onrender.com/items/NFT_Burn_Executions',
       {method:'PATCH',headers,redirect:'error',signal:AbortSignal.timeout(15000),
-       body:JSON.stringify({status:'confirmed'})});
+       body:JSON.stringify({query:{filter:{_and:[
+        {id:{_eq:evidence.reservationId}},
+        {status:{_eq:'prepared'}},
+        {transaction_hash:{_eq:signedHash.toLowerCase()}}
+       ]}},data:{status:'confirmed'}})});
    if(!saved.ok)throw Error('BURN_CONFIRMATION_WRITE_HELD_'+saved.status);
    const affectedConfirmed=(await saved.json()).data;
    if(!Array.isArray(affectedConfirmed)||affectedConfirmed.length!==1||
