@@ -42,9 +42,9 @@ export async function readVerifiedBlockRadiusManifest({fetcher=fetch,env=process
  return Object.freeze({albumTitle:name.trim(),artist:artist.trim(),coverUrl:validCover(cover),shareId:SHARE_ID,
     manifestId:String(record.id??''),publishedAt:String(record.publishedAt??'')});
 }
-export async function buildFirstBetaMetadata({env=process.env,fetcher=fetch,readRegistration=readCommercialPreprintRegistration}={}){
- const e=await readRegistration('6');
- if(e?.registrationId!=='6'||e.verified!==true||e.registrationVerified!==true||
+export async function buildFirstBetaMetadata({env=process.env,fetcher=fetch,registrationId='6',readRegistration=readCommercialPreprintRegistration}={}){
+ const e=await readRegistration(registrationId);
+ if(e?.registrationId!==registrationId||e.verified!==true||e.registrationVerified!==true||
     e.paymentRecordMatched!==true||e.ownershipVerified!==true||
     e.albumId!=='ALBUM-BETA-'+SHARE_ID||!/^COPY-BETA-[1-9][0-9]*$/.test(e.copyNumber??''))
    throw Error('BETA_REGISTRATION_NOT_VERIFIED');
