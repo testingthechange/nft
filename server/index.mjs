@@ -104,7 +104,9 @@ createServer(async (req, res) => {
       if(req.method!=='POST'){json(res,405,{ok:false,error:'method_not_allowed'});return;}
       if(!authorized(req)){json(res,401,{ok:false,error:'unauthorized'});return;}
       try{
-        const report=await checkBlockRadiusPreMint();
+        const registrationId=new URL(req.url,'http://localhost').searchParams.get('registrationId')||'6';
+        if(!/^[1-9][0-9]*$/.test(registrationId)){json(res,422,{ok:false,error:'invalid_registration'});return;}
+        const report=await checkBlockRadiusPreMint({registrationId});
         json(res,200,{ok:true,...report});
       }catch{
         json(res,503,{ok:false,error:'beta_preflight_unavailable',mintAuthorized:false});
