@@ -1,7 +1,7 @@
 import {Contract,JsonRpcProvider,getAddress,AbiCoder,keccak256} from 'ethers';
 import {readCommercialPreprintRegistration} from './nftCommercialPreprintEvidence.mjs';
 // Internal pre-burn adapter. No public endpoint, mint, burn or Pipeline 1 mutation.
-export async function storeVerifiedNftForBurn({registrationId,mintTransactionHash,env=process.env}={}){
+export async function storeVerifiedNftForBurn({registrationId,mintTransactionHash,expectedTokenId,env=process.env}={}){
  registrationId=String(registrationId);
  if(!/^[1-9][0-9]*$/.test(registrationId)||BigInt(registrationId)<=6n||!/^0x[0-9a-fA-F]{64}$/.test(mintTransactionHash))throw Error('INVALID_REGISTRY_INPUT');
  const token=env.AJINE_DIRECTUS_TOKEN;
@@ -16,6 +16,7 @@ export async function storeVerifiedNftForBurn({registrationId,mintTransactionHas
   if((await provider.getNetwork()).chainId!==80002n)throw Error('WRONG_CHAIN');
   const c=new Contract(address,['function tokenIdForCopy(string,string) view returns(uint256)','function copyKeyOfToken(uint256) view returns(bytes32)','function ownerOf(uint256) view returns(address)','function tokenURI(uint256) view returns(string)','event BetaAlbumCopyMinted(bytes32 indexed copyKey,uint256 indexed tokenId,address indexed recipient)'],provider);
   const id=await c.tokenIdForCopy(e.albumId,e.copyNumber);
+  if(expectedTokenId!==undefined&&id.toString()!==String(expectedTokenId))throw Error('EXPECTED_TOKEN_MISMATCH');
   const key=keccak256(AbiCoder.defaultAbiCoder().encode(['string','string'],[e.albumId,e.copyNumber]));
   const receipt=await provider.getTransactionReceipt(mintTransactionHash);
   if(!receipt||receipt.status!==1||getAddress(receipt.to)!==address||await receipt.confirmations()<2||id<=0n)throw Error('MINT_RECEIPT_INVALID');
