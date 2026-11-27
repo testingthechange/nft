@@ -51,29 +51,35 @@ export async function stageVerifiedBurnEvidence({authorization:a,env=process.env
   if(!recorded)throw Error('AGREEMENT_EVENT_WRITE_HTTP_'+response.status);
  }
  if(!Object.entries(event).every(([k,v])=>k==='occurred_at'?Date.parse(recorded[k])===Date.parse(v):String(recorded[k])===v))throw Error('AGREEMENT_EVENT_READBACK_MISMATCH');
- // Withdrawal is a separate immutable event; original acceptance stays intact.
- let withdrawalId=null;
- if(a.withdrawal){
-  const w=a.withdrawal;
-  if(typeof w.occurredAt!=='string'||!Number.isFinite(Date.parse(w.occurredAt))||Date.parse(w.occurredAt)<=Date.parse(a.acceptedAt)||Date.parse(w.occurredAt)>Date.now())throw Error('WITHDRAWAL_TIME_INVALID');
-  const h=createHash('sha256').update('ajine:agreement:withdrawn:'+a.agreementId).digest('hex');
-  withdrawalId=h.slice(0,8)+'-'+h.slice(8,12)+'-8'+h.slice(13,16)+'-a'+h.slice(17,20)+'-'+h.slice(20,32);
-  const q='?filter[id][_eq]='+encodeURIComponent(withdrawalId)+'&limit=2';
-  const expected={id:withdrawalId,agreement_id:a.agreementId,registration_id:a.registrationId,event_type:'withdrawn',occurred_at:new Date(w.occurredAt).toISOString()};
-  async function readWithdrawal(){
-   const response=await eventApi('GET',q);
-   if(!response.ok)throw Error('WITHDRAWAL_READ_HTTP_'+response.status);
-   const rows=(await response.json()).data;
-   if(!Array.isArray(rows)||rows.length>1)throw Error('WITHDRAWAL_CONFLICT');
-   return rows[0];
-  }
-  let row=await readWithdrawal();
-  if(!row){
-   await eventApi('POST','',expected);
-   row=await readWithdrawal();
-  }
-  if(!row||!Object.entries(expected).every(([k,v])=>k==='occurred_at'?Number.isFinite(Date.parse(row[k]))&&Date.parse(row[k])>Date.parse(a.acceptedAt):String(row[k])===v))throw Error('WITHDRAWAL_READBACK_MISMATCH');
-  return Object.freeze({eventId,withdrawalId,withdrawnAt:new Date(row.occurred_at).toISOString(),registrationId:a.registrationId,nftRegistryId:n.nftRegistryId,albumRegistrationId:n.albumRegistrationId,tokenId:n.tokenId,agreementId:a.agreementId,stored:true,burn_enabled:false});
+ // Resolve the immutable event chain, preserving the original withdrawal ID.
+ const uuid=(seed)=>{const h=createHash('sha256').update(seed).digest('hex');return h.slice(0,8)+'-'+h.slice(8,12)+'-8'+h.slice(13,16)+'-a'+h.slice(17,20)+'-'+h.slice(20,32);};
+ const response=await eventApi('GET','?filter[agreement_id][_eq]='+encodeURIComponent(a.agreementId)+'&limit=1001&sort=occurred_at');
+ if(!response.ok)throw Error('LIFECYCLE_READ_HTTP_'+response.status);
+ const rows=(await response.json()).data;
+ if(!Array.isArray(rows)||!rows.length||rows.length>1000)throw Error('LIFECYCLE_LIMIT');
+ const nextId=(previous,type)=>previous.id===eventId&&type==='withdrawn'?uuid('ajine:agreement:withdrawn:'+a.agreementId):uuid('ajine:agreement:'+type+':'+a.agreementId+':'+previous.id);
+ let previous=null;
+ for(const row of rows){
+  const type=previous?(previous.event_type==='pending'?'withdrawn':'pending'):'pending';
+  if(row.id!==(previous?nextId(previous,type):eventId)||row.event_type!==type||row.registration_id!==a.registrationId||row.agreement_id!==a.agreementId||!Number.isFinite(Date.parse(row.occurred_at))||(previous&&Date.parse(row.occurred_at)<=Date.parse(previous.occurred_at)))throw Error('LIFECYCLE_CHAIN_INVALID');
+  previous=row;
  }
- return Object.freeze({eventId,registrationId:a.registrationId,nftRegistryId:n.nftRegistryId,albumRegistrationId:n.albumRegistrationId,tokenId:n.tokenId,agreementId:a.agreementId,stored:true,burn_enabled:false});
+ const target=a.withdrawal?'withdrawn':a.renewal?'pending':null;
+ if(a.withdrawal&&a.renewal)throw Error('LIFECYCLE_COMMAND_CONFLICT');
+ if(target&&previous.event_type!==target){
+  const command=a.withdrawal||a.renewal;
+  if(command.previousEventId!==previous.id&&!(a.withdrawal&&previous.id===eventId&&command.previousEventId===undefined))throw Error('LIFECYCLE_STALE_COMMAND');
+  const time=Date.parse(command.occurredAt);
+  if(!Number.isFinite(time)||time<=Date.parse(previous.occurred_at)||time>Date.now())throw Error('LIFECYCLE_TIME_INVALID');
+  const next={id:nextId(previous,target),agreement_id:a.agreementId,registration_id:a.registrationId,event_type:target,occurred_at:new Date(time).toISOString()};
+  await eventApi('POST','',next);
+  const check=await eventApi('GET','/'+encodeURIComponent(next.id));
+  if(!check.ok)throw Error('LIFECYCLE_WRITE_HELD');
+  const row=(await check.json()).data;
+  if(!row||!Object.entries(next).every(([k,v])=>k==='occurred_at'?Number.isFinite(Date.parse(row[k]))&&Date.parse(row[k])>Date.parse(previous.occurred_at):String(row[k])===v))throw Error('LIFECYCLE_READBACK_MISMATCH');
+  rows.push(row);previous=row;
+ }else if(target&&previous.event_type===target){
+  if(rows.length<2|| ((a.withdrawal||a.renewal).previousEventId!==rows[rows.length-2].id&&!(a.withdrawal&&rows.length===2&&a.withdrawal.previousEventId===undefined)))throw Error('LIFECYCLE_STALE_COMMAND');
+ }
+ return Object.freeze({eventId,events:rows.map(({id,agreement_id,registration_id,event_type,occurred_at})=>({id,agreement_id,registration_id,event_type,occurred_at})),currentEventId:previous.id,currentStatus:previous.event_type,...(previous.event_type==='withdrawn'?{withdrawalId:previous.id,withdrawnAt:new Date(previous.occurred_at).toISOString()}:{}),registrationId:a.registrationId,nftRegistryId:n.nftRegistryId,albumRegistrationId:n.albumRegistrationId,tokenId:n.tokenId,agreementId:a.agreementId,stored:true,burn_enabled:false});
 }
