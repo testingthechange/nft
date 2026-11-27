@@ -10,7 +10,7 @@ async function api(path,method='GET',body){
 const collection='Burn_Registry';
 const fields=await api('/fields/'+collection);
 const relations=await api('/relations');
-if(!relations.some(r=>r.many_collection===collection&&r.many_field==='nft_link'&&r.one_collection==='NFT_Registry'))throw Error('NFT_LINK_REQUIRED');
+if(!relations.some(r=>(r.collection??r.meta?.many_collection??r.many_collection)===collection&&(r.field??r.meta?.many_field??r.many_field)==='nft_link'&&(r.related_collection??r.meta?.one_collection??r.one_collection)==='NFT_Registry'))throw Error('NFT_LINK_REQUIRED');
 const rows=await api('/items/'+collection+'?limit=1&fields=id');
 if(rows.length)throw Error('EXISTING_BURNS_REQUIRE_REVIEW');
 const apply=process.argv.includes('--apply');
