@@ -15,9 +15,9 @@ export function assertFirstPrintAcceptance({board,authorization,metadataUri,veri
      throw Error('FIRST_PRINT_IDENTITY_MISMATCH');
  }
  // The first core beta NFT has no mystery-card inventory. This exception is
- // limited to Registration #6 with an exact trusted copy, and cannot claim rarity.
+ // limited to an exact trusted beta copy, and cannot claim rarity.
  const betaCoreOnly=authorization?.betaCoreOnly===true&&
-   id.registrationId==='6'&&/^ALBUM-BETA-/.test(id.albumId)&&
+   /^[1-9][0-9]*$/.test(id.registrationId)&&/^ALBUM-BETA-/.test(id.albumId)&&
    /^COPY-BETA-/.test(id.copyNumber)&&
    authorization?.registrationVerified===true&&
    authorization?.rarityVerified===false&&authorization?.layerTwoRarityVerified===false&&
