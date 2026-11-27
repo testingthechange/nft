@@ -272,6 +272,31 @@ createServer(async (req, res) => {
       json(res,result.ok?200:503,result);
       return;
     }
+    if (path === '/api/pipeline2/burn-board/preview') {
+      if (req.method !== 'POST') { json(res,405,{error:'method_not_allowed'}); return; }
+      if (!pipeline2ConnectionEnabled()) { json(res,503,{error:'connection_disabled'}); return; }
+      const expected = Buffer.from(process.env.AJINE_PIPELINE2_CONNECTION_TOKEN);
+      const header = req.headers.authorization || '';
+      const supplied = Buffer.from(header.startsWith('Bearer ') ? header.slice(7) : '');
+      if (supplied.length !== expected.length || !timingSafeEqual(supplied,expected)) {
+        json(res,401,{error:'unauthorized'}); return;
+      }
+      let body;
+      try { body = await readJson(req); }
+      catch (error) { json(res,error.http || 400,{error:error.message}); return; }
+      if (!body || Object.keys(body).sort().join(',') !== 'contract_address,copy_number,event_type,network,option,request_id,schema_version,token_id' ||
+          body.schema_version !== 1 || body.event_type !== 'pipeline2.burn.preview' ||
+          body.option !== 'discount' || body.network !== 'polygon-amoy' ||
+          typeof body.request_id !== 'string' || !/^[A-Za-z0-9_-]{8,100}$/.test(body.request_id) ||
+          typeof body.contract_address !== 'string' || !/^0x[0-9a-f]{40}$/i.test(body.contract_address) ||
+          typeof body.token_id !== 'string' || !/^[1-9][0-9]*$/.test(body.token_id) ||
+          typeof body.copy_number !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(body.copy_number)) {
+        json(res,422,{error:'invalid_burn_preview'}); return;
+      }
+      console.info('AJINE_PIPELINE2_BURN_BOARD_RECEIVED',JSON.stringify({request_id:body.request_id,option:body.option}));
+      json(res,200,{ok:true,board:'burn-board',request_id:body.request_id,received:body,stored:false,burn_enabled:false});
+      return;
+    }
     if (path === '/api/pipeline2/connection/ping') {
       if (req.method !== 'POST') { json(res, 405, { error: 'method_not_allowed' }); return; }
       if (!pipeline2ConnectionEnabled()) { json(res, 503, { error: 'connection_disabled' }); return; }
