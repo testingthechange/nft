@@ -321,7 +321,7 @@ createServer(async (req, res) => {
          typeof b.copyNumber!=='string'||!/^COPY-BETA-[1-9][0-9]*$/.test(b.copyNumber)||
          typeof b.contractAddress!=='string'||b.contractAddress.toLowerCase()!=='0xa8d7598d2be127727f15667f4f5b4773ff1ec361'||
          !positive(b.tokenId)||typeof b.mintTransactionHash!=='string'||!/^0x[0-9a-f]{64}$/i.test(b.mintTransactionHash)||
-         b.network!=='polygon-amoy'||b.option!=='discount'||b.agreementVersion!=='discount-v1'||
+         b.network!=='polygon-amoy'||!['discount','jingles'].includes(b.option)||b.agreementVersion!==b.option+'-v1'||
          typeof b.agreementId!=='string'||!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(b.agreementId)||
          typeof b.acceptedAt!=='string'||!Number.isFinite(Date.parse(b.acceptedAt))||Date.parse(b.acceptedAt)>Date.now()||
          typeof b.userId!=='string'||!b.userId||b.userId.length>200){
