@@ -12,8 +12,9 @@ export async function completeDiscountBurn({input,env=process.env,fetchImpl=fetc
  if(env.AJINE_FINAL_BURN_EXECUTION_ENABLED!=='true'||env.AJINE_AMOY_BURN_ENABLED!=='true')
   throw Error('FINAL_BURN_EXECUTION_DISABLED');
  const reservationId=input?.reservationId;
+ if(input?.option==='jingles'&&env.AJINE_JINGLE_BURN_EXECUTION_ENABLED!=='true')throw Error('JINGLE_BURN_DISABLED');
  if(!uuid.test(reservationId||'')||!uuid.test(input?.agreementId||'')||
-  !uuid.test(input?.agreementEventId||'')||input?.option!=='discount'||
+  !uuid.test(input?.agreementEventId||'')||!['discount','jingles'].includes(input?.option)||
   input?.confirmBurn!==true||!/^[1-9][0-9]*$/.test(String(input?.registrationId||'')))
   throw Error('FINAL_BURN_INPUT_INVALID');
  const token=env.AJINE_DIRECTUS_TOKEN;
@@ -34,7 +35,7 @@ export async function completeDiscountBurn({input,env=process.env,fetchImpl=fetc
  const nft=registries[0];
  const identity=String(nft.contract_address||'').toLowerCase()+':'+String(nft.token_id||'');
  if(reservation.nft_identity!==identity||nft.burn_agreement_id!==input.agreementId||
-  nft.burn_reward_selection!=='discount'||nft.mint_status!=='minted'||nft.polygon_network!=='polygon-amoy'||
+  nft.burn_reward_selection!==input.option||nft.mint_status!=='minted'||nft.polygon_network!=='polygon-amoy'||
   !/^[1-9][0-9]*$/.test(String(nft.token_id||'')))
   throw Error('FINAL_BURN_NFT_IDENTITY_MISMATCH');
  const {verifyNftBurnAdmission}=await import('./pipeline2BurnAdmissionReadback.mjs');
@@ -48,13 +49,13 @@ export async function completeDiscountBurn({input,env=process.env,fetchImpl=fetc
    albumId:purchase.albumId,copyNumber:purchase.copyNumber,contractAddress:nft.contract_address,
    tokenId:String(nft.token_id),mintTransactionHash:nft.transaction_hash,network:'polygon-amoy',
    agreementId:input.agreementId,agreementVersion:nft.burn_agreement_version,
-   acceptedAt:nft.burn_agreement_accepted_at,option:'discount',userId:nft.burn_authorization_owner};
+   acceptedAt:nft.burn_agreement_accepted_at,option:input.option,userId:nft.burn_authorization_owner};
  const checked=await verifyNftBurnAdmission({authorization,env,fetchImpl});
  if(checked?.verified!==true||checked.agreementEventId!==reservation.agreement_event_id||
    checked.nftIdentity!==reservation.nft_identity)throw Error('FINAL_BURN_AGREEMENT_CHANGED');
  // The reserved row is single-use: executor refuses an already prepared hash.
  // Never start another transaction if a signed one may already exist.
- const evidence={verified:true,agreementVerified:true,option:'discount',network:'polygon-amoy',
+ const evidence={verified:true,agreementVerified:true,option:input.option,network:'polygon-amoy',
   reservationId,agreementId:input.agreementId,agreementEventId:input.agreementEventId,
   registrationId:input.registrationId,albumId:purchase.albumId,copyNumber:purchase.copyNumber,
   contractAddress:nft.contract_address,ownerWallet:nft.owner_wallet,tokenId:String(nft.token_id)};
