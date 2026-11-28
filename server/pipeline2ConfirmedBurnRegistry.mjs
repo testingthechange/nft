@@ -28,6 +28,10 @@ export async function recordConfirmedAjineBurn({reservationId,env=process.env,fe
   throw Error('AJINE_BURN_NFT_MISMATCH');
  const option=nft.burn_reward_selection;
  if(!['discount','jingles'].includes(option))throw Error('BURN_REWARD_INVALID');
+ if(option==='jingles'){
+  const {recordPrivateJingleBurn}=await import('./pipeline2PrivateJingleRegistry.mjs');
+  return recordPrivateJingleBurn({execution,nft,env});
+ }
  const discountNumber='AJINE-BURN-'+execution.registration_id+'-'+
    createHash('sha256').update(execution.nft_identity+':'+execution.transaction_hash)
    .digest('hex').slice(0,16).toUpperCase();
