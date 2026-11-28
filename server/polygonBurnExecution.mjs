@@ -13,7 +13,7 @@ export async function executeAmoyBurn({evidence,env=process.env,fetchImpl=fetch}
  if(env.AJINE_AMOY_BURN_ENABLED!=='true')throw Error('BURN_DISABLED');
  if(env.AJINE_AMOY_MINT_ENABLED==='true')throw Error('BURN_SIGNER_SHARED_WITH_ACTIVE_MINT');
  if(!evidence||evidence.verified!==true||evidence.agreementVerified!==true||
-    evidence.option!=='discount'||evidence.network!=='polygon-amoy'||
+    !['discount','jingles'].includes(evidence.option)||evidence.network!=='polygon-amoy'||
     !uuid.test(evidence.reservationId||'')||!uuid.test(evidence.agreementId||'')||
     !uuid.test(evidence.agreementEventId||'')||!/^[1-9][0-9]*$/.test(String(evidence.registrationId||''))||
     !/^ALBUM-BETA-.+$/.test(evidence.albumId||'')||
