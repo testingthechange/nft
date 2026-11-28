@@ -13,7 +13,7 @@ const canonicalTime=s=>{if(typeof s!=='string'||!Number.isFinite(Date.parse(s)))
 export async function verifyNftBurnAdmission({authorization:a,env=process.env,fetchImpl=fetch,readRegistration=readCommercialPreprintRegistration}={}){
  if(!a||!uuidPattern.test(a.agreementId||'')||!/^[1-9][0-9]*$/.test(String(a.registrationId??''))||
     !/^[1-9][0-9]*$/.test(String(a.tokenId??''))||!hexHash.test(a.mintTransactionHash||'')||
-    !['discount','jingles'].includes(a.option)||a.agreementVersion!==a.option+'-v1'||a.network!=='polygon-amoy'||
+    !['discount','jingles'].includes(a.option)||a.agreementVersion!==(a.option==='jingles'?'jingles-v2':'discount-v1')||a.network!=='polygon-amoy'||
     typeof a.userId!=='string'||!a.userId||a.userId.length>200||
     typeof a.albumId!=='string'||!/^ALBUM-BETA-[A-Za-z0-9_-]+$/.test(a.albumId)||
     !/^COPY-BETA-[1-9][0-9]*$/.test(a.copyNumber||'')||
