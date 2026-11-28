@@ -728,4 +728,9 @@ createServer(async (req, res) => {
   }
 }).listen(PORT, '0.0.0.0', () => {
   console.log('AJINE NFT API listening on port ' + PORT);
+  if(process.env.AJINE_JINGLE_REGISTRY_DATABASE_URL||process.env.AJINE_JINGLE_REGISTRY_KEY){
+    import('./pipeline2PrivateJingleRegistry.mjs').then(m=>m.verifyPrivateJingleRegistry(process.env))
+      .then(()=>console.info('AJINE_PRIVATE_REGISTRY_CONNECTION_PASS'))
+      .catch(()=>console.error('AJINE_PRIVATE_REGISTRY_CONNECTION_FAIL'));
+  }
 });
