@@ -48,6 +48,6 @@ export async function recordPrivateJingleBurn({execution,nft,env}){
  const stored=JSON.parse(Buffer.concat([decipher.update(p.subarray(28)),decipher.final()]).toString('utf8'));
  for(const field of ['transactionHash','nftIdentity','registrationId','agreementId'])if(stored[field]!==value[field])throw Error('PRIVATE_REGISTRY_MISMATCH');
  if(!/^AJINE-BURN-[A-F0-9]{64}$/.test(stored.number))throw Error('PRIVATE_REGISTRY_NUMBER_INVALID');
- return Object.freeze({ok:true,stored:true,ajineBurnNumber:stored.number,burnRegistryId:id,agreementId:stored.agreementId,registrationId:stored.registrationId,transactionHash:stored.transactionHash});
+ return Object.freeze({ok:true,stored:true,privateRegistryConfirmed:true,burnRegistryId:id,agreementId:stored.agreementId,registrationId:stored.registrationId,transactionHash:stored.transactionHash});
  }finally{await db.end();}
 }

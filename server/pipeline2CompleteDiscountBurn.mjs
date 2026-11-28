@@ -68,6 +68,10 @@ export async function completeDiscountBurn({input,env=process.env,fetchImpl=fetc
  const provenance=await record({reservationId,env,fetchImpl,reconcile});
  if(provenance?.stored!==true||provenance.registrationId!==input.registrationId)
   throw Error('FINAL_BURN_PROVENANCE_HELD');
+ if(input.option==='jingles'){
+  if(provenance.privateRegistryConfirmed!==true)throw Error('JINGLE_PRIVATE_REGISTRY_HELD');
+  return Object.freeze({ok:true,confirmed:true,privateRegistryConfirmed:true,registrationId:input.registrationId,reservationId,agreementId:input.agreementId});
+ }
  return Object.freeze({ok:true,confirmed:true,registrationId:input.registrationId,
   reservationId,agreementId:input.agreementId,agreementEventId:input.agreementEventId,
   tokenId:String(nft.token_id),transactionHash:provenance.transactionHash,
@@ -83,5 +87,6 @@ export async function recoverDiscountBurn({input,env=process.env,fetchImpl=fetch
  if(result?.confirmed!==true)return Object.freeze({ok:true,confirmed:false,retryAllowed:false,reservationId:input.reservationId});
  const provenance=await record({reservationId:input.reservationId,env,fetchImpl,reconcile});
  if(provenance?.stored!==true)throw Error('FINAL_BURN_RECOVERY_PROVENANCE_HELD');
+ if(provenance.privateRegistryConfirmed===true)return Object.freeze({ok:true,confirmed:true,retryAllowed:false,privateRegistryConfirmed:true,registrationId:provenance.registrationId,agreementId:provenance.agreementId,reservationId:input.reservationId});
  return Object.freeze({ok:true,confirmed:true,retryAllowed:false,...provenance,reservationId:input.reservationId});
 }
