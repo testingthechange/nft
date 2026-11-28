@@ -59,6 +59,10 @@ export async function completeDiscountBurn({input,env=process.env,fetchImpl=fetc
   reservationId,agreementId:input.agreementId,agreementEventId:input.agreementEventId,
   registrationId:input.registrationId,albumId:purchase.albumId,copyNumber:purchase.copyNumber,
   contractAddress:nft.contract_address,ownerWallet:nft.owner_wallet,tokenId:String(nft.token_id)};
+ if(input.option==='jingles'){
+  const {verifyPrivateJingleRegistry}=await import('./pipeline2PrivateJingleRegistry.mjs');
+  await verifyPrivateJingleRegistry(env);
+ }
  const chain=await execute({evidence,env,fetchImpl});
  if(chain?.confirmed!==true)throw Error('FINAL_BURN_CHAIN_NOT_CONFIRMED');
  const provenance=await record({reservationId,env,fetchImpl,reconcile});
