@@ -36,7 +36,8 @@ export async function recordPrivateJingleBurn({execution,nft,env}){
  const id=execution.id;
  try{
  const number='AJINE-BURN-'+randomBytes(32).toString('hex').toUpperCase();
- const value={number,transactionHash:execution.transaction_hash,nftIdentity:execution.nft_identity,registrationId:execution.registration_id,agreementId:execution.agreement_id};
+ const jingleIds=Array.from({length:5},()=> 'AJINE-JINGLE-'+randomBytes(32).toString('hex').toUpperCase());
+ const value={number,jingleIds,transactionHash:execution.transaction_hash,nftIdentity:execution.nft_identity,registrationId:execution.registration_id,agreementId:execution.agreement_id};
  const iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',key,iv);
  cipher.setAAD(Buffer.from(id));
  const encrypted=Buffer.concat([cipher.update(JSON.stringify(value),'utf8'),cipher.final()]);
@@ -48,6 +49,8 @@ export async function recordPrivateJingleBurn({execution,nft,env}){
  const stored=JSON.parse(Buffer.concat([decipher.update(p.subarray(28)),decipher.final()]).toString('utf8'));
  for(const field of ['transactionHash','nftIdentity','registrationId','agreementId'])if(stored[field]!==value[field])throw Error('PRIVATE_REGISTRY_MISMATCH');
  if(!/^AJINE-BURN-[A-F0-9]{64}$/.test(stored.number))throw Error('PRIVATE_REGISTRY_NUMBER_INVALID');
+ if(!Array.isArray(stored.jingleIds)||stored.jingleIds.length!==5||new Set(stored.jingleIds).size!==5||!stored.jingleIds.every(id=>/^AJINE-JINGLE-[A-F0-9]{64}$/.test(id)))throw Error('PRIVATE_JINGLE_IDS_INVALID');
+ console.info('AJINE_PRIVATE_JINGLE_IDS_CONFIRMED',JSON.stringify({count:5}));
  return Object.freeze({ok:true,stored:true,privateRegistryConfirmed:true,burnRegistryId:id,agreementId:stored.agreementId,registrationId:stored.registrationId,transactionHash:stored.transactionHash});
  }finally{await db.end();}
 }
