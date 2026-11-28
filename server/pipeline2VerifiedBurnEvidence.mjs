@@ -22,9 +22,13 @@ export async function stageVerifiedBurnEvidence({authorization:a,env=process.env
  if(String(before.registration_id)!==a.registrationId||String(before.token_id)!==a.tokenId)throw Error('AGREEMENT_TARGET_MISMATCH');
  const matches=row=>Object.entries(fields).every(([k,v])=>String(row[k])===v);
  if(!matches(before)){
-  if(Object.keys(fields).some(k=>before[k]!=null))throw Error('EXISTING_AGREEMENT_CONFLICT');
+  if(before.burn_agreement_id===a.agreementId)throw Error('EXISTING_AGREEMENT_CONFLICT');
+  if(before.burn_agreement_id!=null){
+   const prior=await fetch('https://directus-on-nft.onrender.com/items/NFT_Agreement_Events?filter[agreement_id][_eq]='+encodeURIComponent(before.burn_agreement_id)+'&sort=-occurred_at&limit=1',{headers:{Authorization:'Bearer '+token},signal:AbortSignal.timeout(15000)});
+   if(!prior.ok||(await prior.json()).data?.[0]?.event_type!=='withdrawn')throw Error('EXISTING_AGREEMENT_WITHDRAWAL_REQUIRED');
+  }else if(Object.keys(fields).some(k=>before[k]!=null))throw Error('EXISTING_AGREEMENT_CONFLICT');
   // Conditional bulk update prevents overwriting an agreement accepted concurrently.
-  const response=await fetch('https://directus-on-nft.onrender.com/items/NFT_Registry',{method:'PATCH',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query:{filter:{_and:[{id:{_eq:n.nftRegistryId}},...Object.keys(fields).map(k=>({[k]:{_null:true}}))]}},data:fields}),redirect:'error',signal:AbortSignal.timeout(15000)});
+  const response=await fetch('https://directus-on-nft.onrender.com/items/NFT_Registry',{method:'PATCH',headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'},body:JSON.stringify({query:{filter:{_and:[{id:{_eq:n.nftRegistryId}},...Object.keys(fields).map(k=>({[k]:before[k]==null?{_null:true}:{_eq:before[k]}}))]}},data:fields}),redirect:'error',signal:AbortSignal.timeout(15000)});
   if(!response.ok)throw Error('AGREEMENT_WRITE_HTTP_'+response.status);
  }
  if(!matches(await api('GET')))throw Error('AGREEMENT_READBACK_MISMATCH');
